@@ -1,2 +1,36 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
+
+:root {
+  --color-bg:            #F7F5F0;
+  --color-surface:       #FFFFFF;
+  --color-border:        #E4DDD3;
+  --color-text:          #1C1C1A;
+  --color-text-muted:    #6B6860;
+  --color-primary:       #2D6A4F;
+  --color-primary-hover: #235C44;
+  --color-primary-light: #D8EDD6;
+  --color-accent:        #52B788;
+  --color-accent-warm:   #B7935A;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Jost', sans-serif;
+  font-weight: 400;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fadeUp 0.45s ease forwards;
+}

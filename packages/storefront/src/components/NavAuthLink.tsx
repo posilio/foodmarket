@@ -7,16 +7,19 @@ export function NavAuthLink() {
   return isLoggedIn ? (
     <Link
       href="/account"
-      className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+      className="text-sm flex items-center gap-1.5 transition-colors"
+      style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif' }}
     >
-      Account
+      <span>👤</span>
+      <span className="hidden sm:inline">Account</span>
     </Link>
   ) : (
     <Link
       href="/login"
-      className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+      className="text-sm transition-colors hover:opacity-70"
+      style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif' }}
     >
-      Login
+      Sign in
     </Link>
   );
 }

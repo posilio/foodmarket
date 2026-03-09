@@ -1,119 +1,187 @@
-// Product detail page — full product info with variant prices and badge labels.
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getProductBySlug } from "../../../lib/api";
-import { formatPrice } from "../../../lib/format";
-import { Badge } from "../../../components/Badge";
-import { AddToCartButton } from "../../../components/AddToCartButton";
+// Product detail page — two-column layout with variant selector and quantity picker.
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { getProductBySlug } from '../../../lib/api';
+import { ProductVariantControl } from '../../../components/ProductVariantControl';
+
+const COUNTRY_FLAG: Record<string, string> = {
+  'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Japan': '🇯🇵',
+  'South Korea': '🇰🇷', 'China': '🇨🇳', 'India': '🇮🇳',
+  'Lebanon': '🇱🇧', 'Turkey': '🇹🇷', 'Morocco': '🇲🇦',
+  'Ethiopia': '🇪🇹', 'Nigeria': '🇳🇬', 'Kenya': '🇰🇪',
+  'Mozambique': '🇲🇿', 'Tunisia': '🇹🇳', 'Iran': '🇮🇷',
+  'Jordan': '🇯🇴', 'Mexico': '🇲🇽', 'Peru': '🇵🇪',
+  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'France': '🇫🇷',
+  'Italy': '🇮🇹', 'Spain': '🇪🇸', 'Greece': '🇬🇷',
+  'Portugal': '🇵🇹', 'Germany': '🇩🇪', 'Netherlands': '🇳🇱',
+  'Indonesia': '🇮🇩',
+};
+
+const DIETARY_STYLE: Record<string, { emoji: string; label: string; bg: string; color: string }> = {
+  VEGAN:       { emoji: '🌱', label: 'Vegan',       bg: 'var(--color-primary-light)', color: 'var(--color-primary)' },
+  VEGETARIAN:  { emoji: '🥗', label: 'Vegetarian',  bg: '#F0FAF0', color: '#2A7A2A' },
+  GLUTEN_FREE: { emoji: '🌾', label: 'Gluten free', bg: '#FFFBEB', color: '#92400E' },
+  DAIRY_FREE:  { emoji: '🥛', label: 'Dairy free',  bg: '#EFF6FF', color: '#1D4ED8' },
+  HALAL:       { emoji: '☪️', label: 'Halal',       bg: '#F5F3FF', color: '#5B21B6' },
+  KOSHER:      { emoji: '✡️', label: 'Kosher',      bg: '#F5F3FF', color: '#5B21B6' },
+  NUT_FREE:    { emoji: '🥜', label: 'Nut free',    bg: '#FFF7ED', color: '#C2410C' },
+};
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export default async function ProductDetailPage({
-  params,
-}: ProductDetailPageProps) {
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
 
-  if (!product) {
-    notFound();
-  }
+  if (!product) notFound();
 
-  const activeVariants = product.variants.filter((v) => v.isActive);
+  const activeVariants = product.variants.filter(v => v.isActive);
+  const flag = COUNTRY_FLAG[product.countryOfOrigin] ?? '🌍';
 
   return (
-    <>
-      <Link
-        href="/products"
-        className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block"
-      >
-        ← Back to products
-      </Link>
-
-      {product.imageUrl && (
-        <div className="aspect-video w-full overflow-hidden rounded-xl bg-gray-100 mb-6">
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-
-      <h1 className="text-3xl font-bold text-gray-900 mb-1">{product.name}</h1>
-      <p className="text-gray-500 text-sm mb-4">{product.countryOfOrigin}</p>
-
-      <p className="text-sm mb-4">
-        <Link
-          href={`/products?category=${product.category.slug}`}
-          className="text-sm text-green-600 hover:underline"
-        >
+    <div className="max-w-[1200px] mx-auto px-6 py-12">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 mb-8 text-sm" style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif' }}>
+        <Link href="/products" style={{ color: 'var(--color-text-muted)' }}>Products</Link>
+        <span>/</span>
+        <Link href={`/products?category=${product.category.slug}`} style={{ color: 'var(--color-text-muted)' }}>
           {product.category.name}
         </Link>
-      </p>
+        <span>/</span>
+        <span style={{ color: 'var(--color-text)' }}>{product.name}</span>
+      </div>
 
-      {product.description && (
-        <p className="text-gray-600 mt-4 mb-6 leading-relaxed">
-          {product.description}
-        </p>
-      )}
-
-      {(product.dietaryLabels.length > 0 || product.allergens.length > 0) && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {product.dietaryLabels.map((d) => (
-            <Badge key={d.id} variant="green">
-              {d.label.replace(/_/g, " ")}
-            </Badge>
-          ))}
-          {product.allergens.map((a) => (
-            <Badge key={a.id} variant="amber">
-              {a.allergen}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">
-        Available sizes
-      </h2>
-
-      <ul className="space-y-3 list-none p-0">
-        {activeVariants.map((variant) => (
-          <li
-            key={variant.id}
-            className="bg-white border border-gray-200 rounded-lg px-4 py-3"
+      {/* Two-column layout */}
+      <div className="flex flex-col lg:flex-row gap-12">
+        {/* Left — image */}
+        <div className="lg:w-[55%]">
+          <div
+            className="w-full rounded-2xl overflow-hidden"
+            style={{
+              aspectRatio: '1/1',
+              backgroundColor: 'var(--color-primary-light)',
+            }}
           >
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-800">{variant.label}</span>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900">
-                  {formatPrice(variant.priceEuroCents)}
-                </p>
-                <p
-                  className={`text-xs ${
-                    variant.stockQuantity > 0 ? "text-green-600" : "text-red-400"
-                  }`}
-                >
-                  {variant.stockQuantity > 0
-                    ? `In stock (${variant.stockQuantity} available)`
-                    : "Out of stock"}
-                </p>
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-8xl">
+                🌿
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right — info */}
+        <div className="lg:w-[45%] flex flex-col">
+          {/* Origin + category */}
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <p
+              className="text-sm"
+              style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}
+            >
+              {flag} {product.countryOfOrigin}
+            </p>
+            <Link
+              href={`/products?category=${product.category.slug}`}
+              className="text-xs px-3 py-1 rounded-full"
+              style={{
+                backgroundColor: 'var(--color-primary-light)',
+                color: 'var(--color-primary)',
+                fontFamily: 'Jost, sans-serif',
+                fontWeight: 500,
+                textDecoration: 'none',
+              }}
+            >
+              {product.category.name}
+            </Link>
+          </div>
+
+          {/* Product name */}
+          <h1
+            className="mb-4 leading-tight"
+            style={{
+              fontFamily: 'Cormorant Garamond, serif',
+              fontWeight: 600,
+              fontSize: 'clamp(28px, 4vw, 42px)',
+              color: 'var(--color-text)',
+            }}
+          >
+            {product.name}
+          </h1>
+
+          {/* Description */}
+          {product.description && (
+            <p
+              className="mb-6 leading-relaxed"
+              style={{
+                fontFamily: 'Jost, sans-serif',
+                fontWeight: 300,
+                fontSize: '15px',
+                lineHeight: 1.7,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              {product.description}
+            </p>
+          )}
+
+          {/* Dietary labels */}
+          {product.dietaryLabels.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-5">
+              {product.dietaryLabels.map(d => {
+                const s = DIETARY_STYLE[d.label] ?? { emoji: '✓', label: d.label.replace(/_/g, ' '), bg: 'var(--color-primary-light)', color: 'var(--color-primary)' };
+                return (
+                  <span
+                    key={d.id}
+                    className="text-xs px-3 py-1 rounded-full"
+                    style={{ backgroundColor: s.bg, color: s.color, fontFamily: 'Jost, sans-serif', fontWeight: 500 }}
+                  >
+                    {s.emoji} {s.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Variant control (client) */}
+          <ProductVariantControl productName={product.name} variants={activeVariants} />
+
+          {/* Allergens */}
+          {product.allergens.length > 0 && (
+            <div className="mt-8 pt-6" style={{ borderTop: '1px solid var(--color-border)' }}>
+              <p
+                className="text-xs tracking-widest uppercase mb-3"
+                style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}
+              >
+                Allergens
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {product.allergens.map(a => (
+                  <span
+                    key={a.id}
+                    className="text-xs px-3 py-1 rounded-full"
+                    style={{
+                      backgroundColor: '#FEF2F2',
+                      color: '#DC2626',
+                      fontFamily: 'Jost, sans-serif',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {a.allergen}
+                  </span>
+                ))}
               </div>
             </div>
-            <AddToCartButton
-              variantId={variant.id}
-              productName={product.name}
-              variantLabel={variant.label}
-              priceEuroCents={variant.priceEuroCents}
-              inStock={variant.stockQuantity > 0}
-            />
-          </li>
-        ))}
-        {activeVariants.length === 0 && (
-          <li className="text-gray-500 text-sm">No variants available</li>
-        )}
-      </ul>
-    </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
