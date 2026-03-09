@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files — keep examples, ignore real secrets
+.env
+.env.local
+.env.*.local
+# Do not ignore .env.example or .env.local.example
+
+# Next.js build output
+.next/
+out/
+
+# Generic build output
+dist/
+build/
+
+# TypeScript incremental compilation cache
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/

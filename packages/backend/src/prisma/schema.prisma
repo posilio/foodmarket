@@ -1,0 +1,208 @@
+// Prisma schema — defines the database connection and all data models for FoodWebshop.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING // Order created, not yet paid
+  PAID // Payment confirmed
+  PROCESSING // Being prepared for shipment
+  SHIPPED // Handed to courier
+  DELIVERED // Confirmed delivered
+  CANCELLED // Cancelled before shipment
+  REFUNDED // Refunded after payment
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum DietaryLabel {
+  VEGAN
+  VEGETARIAN
+  HALAL
+  KOSHER
+  GLUTEN_FREE
+  DAIRY_FREE
+  NUT_FREE
+}
+
+enum AllergenType {
+  GLUTEN
+  CRUSTACEANS
+  EGGS
+  FISH
+  PEANUTS
+  SOYBEANS
+  MILK
+  NUTS
+  CELERY
+  MUSTARD
+  SESAME
+  SULPHITES
+  LUPIN
+  MOLLUSCS
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+// A top-level grouping for products (e.g. "Asian Sauces", "Grains & Rice").
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  products    Product[]
+}
+
+// A product in the catalogue; actual purchasable items are ProductVariants.
+model Product {
+  id              String                @id @default(cuid())
+  name            String
+  slug            String                @unique
+  description     String?
+  imageUrl        String?
+  countryOfOrigin String
+  categoryId      String
+  category        Category              @relation(fields: [categoryId], references: [id])
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  variants        ProductVariant[]
+  allergens       ProductAllergen[]
+  dietaryLabels   ProductDietaryLabel[]
+}
+
+// A purchasable size/weight variant of a product with its own price and stock.
+model ProductVariant {
+  id             String      @id @default(cuid())
+  productId      String
+  product        Product     @relation(fields: [productId], references: [id])
+  sku            String      @unique
+  label          String
+  weightGrams    Int?
+  priceEuroCents Int
+  stockQuantity  Int         @default(0)
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  orderLines     OrderLine[]
+}
+
+// Join table linking a product to the EU-14 allergens it contains.
+model ProductAllergen {
+  id        String       @id @default(cuid())
+  productId String
+  product   Product      @relation(fields: [productId], references: [id])
+  allergen  AllergenType
+
+  @@unique([productId, allergen])
+}
+
+// Join table linking a product to its dietary certification labels.
+model ProductDietaryLabel {
+  id        String       @id @default(cuid())
+  productId String
+  product   Product      @relation(fields: [productId], references: [id])
+  label     DietaryLabel
+
+  @@unique([productId, label])
+}
+
+// A registered customer account.
+model Customer {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  isActive     Boolean   @default(true)
+  isAdmin      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  addresses    Address[]
+  orders       Order[]
+}
+
+// A delivery address belonging to a customer (NL address format).
+model Address {
+  id                  String   @id @default(cuid())
+  customerId          String
+  customer            Customer @relation(fields: [customerId], references: [id])
+  street              String
+  houseNumber         String
+  houseNumberAddition String?
+  postalCode          String
+  city                String
+  country             String   @default("NL")
+  isDefault           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  orders              Order[]
+}
+
+// A customer order containing one or more product variant lines.
+model Order {
+  id                String       @id @default(cuid())
+  customerId        String
+  customer          Customer     @relation(fields: [customerId], references: [id])
+  status            OrderStatus  @default(PENDING)
+  shippingAddressId String
+  shippingAddress   Address      @relation(fields: [shippingAddressId], references: [id])
+  totalEuroCents    Int
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  lines             OrderLine[]
+  payment           Payment?
+  events            OrderEvent[]
+}
+
+// A single product variant line within an order; price is frozen at order time.
+model OrderLine {
+  id                 String         @id @default(cuid())
+  orderId            String
+  order              Order          @relation(fields: [orderId], references: [id])
+  variantId          String
+  variant            ProductVariant @relation(fields: [variantId], references: [id])
+  quantity           Int
+  unitPriceEuroCents Int
+  createdAt          DateTime       @default(now())
+}
+
+// The payment record associated with an order (one-to-one).
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String        @unique
+  order             Order         @relation(fields: [orderId], references: [id])
+  status            PaymentStatus @default(PENDING)
+  providerReference String?
+  amountEuroCents   Int
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+// Append-only audit log recording every significant event on an order.
+model OrderEvent {
+  id         String       @id @default(cuid())
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id])
+  eventType  String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus?
+  note       String?
+  createdAt  DateTime     @default(now())
+}

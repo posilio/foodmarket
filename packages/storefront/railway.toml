@@ -1,0 +1,5 @@
+[build]
+  dockerfilePath = "packages/storefront/Dockerfile"
+
+[deploy]
+  restartPolicyType = "on_failure"

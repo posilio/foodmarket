@@ -1,0 +1,23 @@
+# Docker Compose file for local development.
+# Starts a PostgreSQL instance accessible on localhost:5433.
+# Note: port 5432 is taken by a native Windows PostgreSQL install.
+# Run: docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-foodwebshop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-foodwebshop_dev}
+      # Trust all connections — safe for local dev only, never use in production.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    driver: local

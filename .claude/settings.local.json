@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(docker:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run:*)",
+      "Bash(pkill:*)",
+      "Read(//tmp/**)",
+      "Bash(curl:*)",
+      "Bash(./node_modules/.bin/prisma:*)",
+      "Bash(C:/dev/FoodMarket/packages/backend/node_modules/.bin/prisma.cmd:*)",
+      "Bash(DATABASE_URL=\"postgresql://foodwebshop:changeme@localhost:5432/foodwebshop_dev\" packages/backend/node_modules/.bin/prisma.cmd migrate:*)",
+      "Bash(node_modules/.bin/prisma.cmd migrate:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(node_modules/.bin/prisma.cmd db:*)",
+      "Bash(../../node_modules/.bin/tsx.cmd:*)",
+      "Bash(__NEW_LINE_e9995f548743c8d4__ echo:*)",
+      "Bash(__NEW_LINE_0ec6f5fcde8f34f5__ echo:*)",
+      "Bash(../../node_modules/.bin/tailwindcss init:*)",
+      "Bash(npx tsc:*)",
+      "Bash(Get-Process:*)",
+      "Bash(powershell:*)",
+      "Bash(node_modules/.bin/prisma.cmd generate:*)"
+    ]
+  }
+}
