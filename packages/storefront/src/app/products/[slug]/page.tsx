@@ -31,6 +31,16 @@ export default async function ProductDetailPage({
         ← Back to products
       </Link>
 
+      {product.imageUrl && (
+        <div className="aspect-video w-full overflow-hidden rounded-xl bg-gray-100 mb-6">
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold text-gray-900 mb-1">{product.name}</h1>
       <p className="text-gray-500 text-sm mb-4">{product.countryOfOrigin}</p>
 

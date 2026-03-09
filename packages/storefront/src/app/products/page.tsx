@@ -41,8 +41,20 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           return (
             <li
               key={product.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
             >
+              <Link href={`/products/${product.slug}`}>
+                {product.imageUrl && (
+                  <div className="aspect-square w-full overflow-hidden bg-gray-100">
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </Link>
+              <div className="p-5">
               <Link
                 href={`/products/${product.slug}`}
                 className="text-lg font-semibold text-gray-900 hover:text-green-600 transition-colors"
@@ -77,6 +89,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               <p className={`text-xs mt-1 ${inStock ? "text-green-600" : "text-red-400"}`}>
                 {inStock ? "In stock" : "Out of stock"}
               </p>
+              </div>
             </li>
           );
         })}
