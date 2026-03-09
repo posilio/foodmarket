@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Providers } from "../context/Providers";
 import { NavCartCount } from "../components/NavCartCount";
+import { NavAuthLink } from "../components/NavAuthLink";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,7 +30,8 @@ export default function RootLayout({
               >
                 Products
               </Link>
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-4">
+                <NavAuthLink />
                 <NavCartCount />
               </div>
             </nav>

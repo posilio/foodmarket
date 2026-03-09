@@ -2,14 +2,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { formatPrice } from '../../lib/format';
+import { useRequireAuth } from '../../lib/useRequireAuth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export default function CheckoutPage() {
-  const { isLoggedIn, token } = useAuth();
+  const { isLoggedIn, token } = useRequireAuth();
   const { items, totalEuroCents, clearCart } = useCart();
   const router = useRouter();
 
@@ -19,10 +19,6 @@ export default function CheckoutPage() {
   const [city, setCity] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isLoggedIn) router.replace('/login');
-  }, [isLoggedIn, router]);
 
   useEffect(() => {
     if (isLoggedIn && items.length === 0) router.replace('/cart');

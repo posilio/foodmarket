@@ -24,6 +24,7 @@ interface AuthContextValue {
   token: string | null;
   isLoggedIn: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -70,6 +71,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCustomer(newCustomer);
   }, []);
 
+  const register = useCallback(
+    async (firstName: string, lastName: string, email: string, password: string) => {
+      const res = await fetch(`${API_URL}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, email, password }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { message?: string }).message ?? 'Registration failed');
+      }
+      const body = await res.json() as { data: { token: string; customer: AuthCustomer } };
+      const { token: newToken, customer: newCustomer } = body.data;
+      sessionStorage.setItem(TOKEN_KEY, newToken);
+      setToken(newToken);
+      setCustomer(newCustomer);
+    },
+    []
+  );
+
   const logout = useCallback(() => {
     sessionStorage.removeItem(TOKEN_KEY);
     setToken(null);
@@ -78,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ customer, token, isLoggedIn: !!token, login, logout }}
+      value={{ customer, token, isLoggedIn: !!token, login, register, logout }}
     >
       {children}
     </AuthContext.Provider>
