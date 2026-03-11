@@ -11,6 +11,10 @@ import {
   createProduct,
   updateVariantStock,
 } from "../services/admin.service";
+import {
+  getAllCustomers,
+  getCustomerByIdAdmin,
+} from "../services/customers.service";
 import { AppError } from "../lib/errors";
 
 const router = Router();
@@ -124,6 +128,26 @@ router.patch("/admin/products/:id/stock", async (req, res, next) => {
       stockQuantity
     );
     res.json({ data: variant });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+
+router.get("/admin/customers", async (_req, res, next) => {
+  try {
+    const customers = await getAllCustomers();
+    res.json({ data: customers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/admin/customers/:id", async (req, res, next) => {
+  try {
+    const customer = await getCustomerByIdAdmin(String(req.params["id"]));
+    res.json({ data: customer });
   } catch (err) {
     next(err);
   }

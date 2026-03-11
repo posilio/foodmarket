@@ -5,6 +5,7 @@ import productsRouter from "./routes/products";
 import authRouter from "./routes/auth";
 import ordersRouter from "./routes/orders";
 import addressesRouter from "./routes/addresses";
+import customersRouter from "./routes/customers";
 import adminRouter from "./routes/admin";
 import paymentsRouter from "./routes/payments";
 import { errorMiddleware } from "./middleware/error.middleware";
@@ -25,6 +26,7 @@ app.use("/api/v1", productsRouter);
 app.use("/api/v1", authRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", addressesRouter);
+app.use("/api/v1", customersRouter);
 app.use("/api/v1", adminRouter);
 app.use("/api/v1", paymentsRouter);
 

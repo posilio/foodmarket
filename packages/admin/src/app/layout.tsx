@@ -35,6 +35,12 @@ export default function AdminLayout({
               >
                 Products
               </Link>
+              <Link
+                href="/customers"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Customers
+              </Link>
               <div className="ml-auto">
                 <LogoutButton />
               </div>
