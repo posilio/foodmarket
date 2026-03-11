@@ -95,6 +95,9 @@ export default function RegisterPage() {
           <div>
             <label style={labelStyle}>Password</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} style={inputStyle} />
+            <p style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+              Minimum 8 characters
+            </p>
           </div>
           <div>
             <label style={labelStyle}>Confirm password</label>

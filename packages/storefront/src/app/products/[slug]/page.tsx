@@ -71,8 +71,18 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-8xl">
-                🌿
+              <div className="w-full h-full flex items-center justify-center">
+                <span
+                  style={{
+                    fontFamily: 'Cormorant Garamond, serif',
+                    fontSize: 'clamp(80px, 15vw, 140px)',
+                    fontWeight: 600,
+                    color: 'var(--color-primary)',
+                    opacity: 0.35,
+                  }}
+                >
+                  {product.name.charAt(0)}
+                </span>
               </div>
             )}
           </div>
@@ -151,7 +161,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           )}
 
           {/* Variant control (client) */}
-          <ProductVariantControl productName={product.name} variants={activeVariants} />
+          <ProductVariantControl productName={product.name} variants={activeVariants} imageUrl={product.imageUrl} />
 
           {/* Allergens */}
           {product.allergens.length > 0 && (

@@ -103,12 +103,20 @@ export default function AccountPage() {
       </h2>
 
       {ordersLoading && (
-        <p style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300, fontSize: '14px' }}>
-          Loading orders…
-        </p>
+        <div className="flex justify-center py-10">
+          <div
+            className="w-6 h-6 rounded-full border-2 animate-spin"
+            style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
+          />
+        </div>
       )}
       {ordersError && (
-        <p className="text-red-500 text-sm" style={{ fontFamily: 'Jost, sans-serif' }}>{ordersError}</p>
+        <div
+          className="rounded-xl px-5 py-4 text-sm"
+          style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', fontFamily: 'Jost, sans-serif' }}
+        >
+          ⚠ {ordersError}
+        </div>
       )}
 
       {!ordersLoading && !ordersError && sorted.length === 0 && (

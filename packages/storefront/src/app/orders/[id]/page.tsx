@@ -29,26 +29,21 @@ interface Payment {
   amountEuroCents: number;
 }
 
-function PaymentBanner({
-  status,
-  orderId,
-}: {
-  status: string | null;
-  orderId: string;
-}) {
+function PaymentBanner({ status, orderId }: { status: string | null; orderId: string }) {
   if (!status) return null;
-
   if (status === 'PAID') {
     return (
-      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6 text-sm">
-        <span className="text-green-600 font-semibold">Payment received ✓</span>
+      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-5 py-4 mb-6 text-sm">
+        <span className="text-green-700 font-semibold" style={{ fontFamily: 'Jost, sans-serif' }}>
+          Payment received ✓
+        </span>
       </div>
     );
   }
   if (status === 'PENDING') {
     return (
-      <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-6 text-sm">
-        <span className="text-yellow-700 font-semibold">
+      <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-4 mb-6 text-sm">
+        <span className="text-yellow-800 font-semibold" style={{ fontFamily: 'Jost, sans-serif' }}>
           Payment pending — this page will update once confirmed
         </span>
       </div>
@@ -56,12 +51,11 @@ function PaymentBanner({
   }
   if (status === 'FAILED') {
     return (
-      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6 text-sm">
-        <span className="text-red-600 font-semibold">Payment failed</span>
-        <Link
-          href={`/checkout`}
-          className="text-red-600 hover:underline font-medium"
-        >
+      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-5 py-4 mb-6 text-sm">
+        <span className="text-red-700 font-semibold" style={{ fontFamily: 'Jost, sans-serif' }}>
+          Payment failed
+        </span>
+        <Link href="/checkout" className="text-red-700 hover:underline font-medium" style={{ fontFamily: 'Jost, sans-serif' }}>
           Try again →
         </Link>
       </div>
@@ -77,7 +71,6 @@ export default function OrderConfirmationPage() {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // Read ?payment=done from URL without useSearchParams (avoids Suspense requirement)
   const [paymentDone, setPaymentDone] = useState(false);
 
   useEffect(() => {
@@ -94,7 +87,6 @@ export default function OrderConfirmationPage() {
       }, 500);
       return () => clearTimeout(timer);
     }
-
     fetch(`${API_URL}/api/v1/orders/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -109,39 +101,72 @@ export default function OrderConfirmationPage() {
       .finally(() => setLoading(false));
   }, [id, token]);
 
-  // Fetch payment status when returning from Mollie
   useEffect(() => {
     if (!paymentDone || !token || !id) return;
-
     fetch(`${API_URL}/api/v1/payments/status/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => (r.ok ? (r.json() as Promise<{ data: Payment | null }>) : null))
-      .then((body) => {
-        if (body?.data) setPayment(body.data);
-      })
+      .then((body) => { if (body?.data) setPayment(body.data); })
       .catch(() => {});
   }, [paymentDone, token, id]);
 
-  if (loading) return <p className="text-gray-500">Loading order…</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  if (loading) {
+    return (
+      <div className="max-w-[1200px] mx-auto px-6 py-12 flex justify-center">
+        <div
+          className="w-6 h-6 rounded-full border-2 animate-spin"
+          style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }}
+        />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-[1200px] mx-auto px-6 py-12">
+        <div
+          className="rounded-xl px-5 py-4 text-sm"
+          style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', fontFamily: 'Jost, sans-serif' }}
+        >
+          ⚠ {error}
+        </div>
+      </div>
+    );
+  }
+
   if (!order) return null;
 
   return (
-    <>
-      <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-6">
-        <h1 className="text-2xl font-bold text-green-800 mb-1">
+    <div className="max-w-[1200px] mx-auto px-6 py-12">
+      {/* Success banner */}
+      <div
+        className="rounded-xl p-6 mb-6"
+        style={{ backgroundColor: 'var(--color-primary-light)', border: '1px solid var(--color-border)' }}
+      >
+        <h1
+          className="mb-1"
+          style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '36px', color: 'var(--color-primary)' }}
+        >
           Order confirmed!
         </h1>
-        <p className="text-green-700 text-sm">
+        <p style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, fontSize: '14px', color: 'var(--color-text-muted)' }}>
           Thank you for your order. We&apos;ll process it shortly.
         </p>
       </div>
 
       <PaymentBanner status={payment?.status ?? null} orderId={id} />
 
-      <h2 className="text-lg font-semibold text-gray-800 mb-1">Order details</h2>
-      <p className="text-sm text-gray-500 mb-4">
+      <h2
+        className="mb-1"
+        style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '24px', color: 'var(--color-text)' }}
+      >
+        Order details
+      </h2>
+      <p
+        className="mb-6 text-sm"
+        style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}
+      >
         Order ID: <span className="font-mono text-xs">{order.id}</span>
       </p>
 
@@ -149,27 +174,36 @@ export default function OrderConfirmationPage() {
         {order.lines.map((line) => (
           <li
             key={line.id}
-            className="flex justify-between bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm"
+            className="flex justify-between rounded-xl px-5 py-3 text-sm"
+            style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
           >
-            <span className="text-gray-800">
-              {line.variant.product.name} — {line.variant.label} ×{' '}
-              {line.quantity}
+            <span style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}>
+              {line.variant.product.name} — {line.variant.label} × {line.quantity}
             </span>
-            <span className="font-semibold text-gray-900">
+            <span style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}>
               {formatPrice(line.unitPriceEuroCents * line.quantity)}
             </span>
           </li>
         ))}
       </ul>
 
-      <div className="flex justify-between font-semibold border-t border-gray-200 pt-4 mb-6">
-        <span>Total</span>
-        <span>{formatPrice(order.totalEuroCents)}</span>
+      <div
+        className="flex justify-between pt-4 mb-8"
+        style={{ borderTop: '1px solid var(--color-border)', fontFamily: 'Jost, sans-serif' }}
+      >
+        <span style={{ fontWeight: 500, color: 'var(--color-text)' }}>Total</span>
+        <span style={{ fontWeight: 500, fontSize: '18px', color: 'var(--color-accent-warm)' }}>
+          {formatPrice(order.totalEuroCents)}
+        </span>
       </div>
 
-      <Link href="/products" className="text-green-600 hover:underline text-sm">
-        Continue shopping
+      <Link
+        href="/products"
+        className="text-sm hover:opacity-70 transition-opacity"
+        style={{ color: 'var(--color-primary)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}
+      >
+        ← Continue shopping
       </Link>
-    </>
+    </div>
   );
 }

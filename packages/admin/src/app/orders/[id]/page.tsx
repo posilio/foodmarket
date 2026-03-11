@@ -29,6 +29,36 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   REFUNDED:   'bg-orange-100 text-orange-700',
 };
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING:    'Pending',
+  PAID:       'Paid',
+  PROCESSING: 'Processing',
+  SHIPPED:    'Shipped',
+  DELIVERED:  'Delivered',
+  CANCELLED:  'Cancelled',
+  REFUNDED:   'Refunded',
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  ORDER_PLACED:      'Order placed',
+  STATUS_UPDATED:    'Status updated',
+  PAYMENT_RECEIVED:  'Payment received',
+  PAYMENT_FAILED:    'Payment failed',
+  PAYMENT_WEBHOOK:   'Payment webhook received',
+  ORDER_CANCELLED:   'Order cancelled',
+  ORDER_REFUNDED:    'Order refunded',
+};
+
+function humaniseEvent(eventType: string): string {
+  return (
+    EVENT_LABELS[eventType] ??
+    eventType
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
 interface OrderLine {
   id: string;
   quantity: number;
@@ -134,8 +164,23 @@ export default function AdminOrderDetailPage() {
   }
 
   if (!isLoggedIn) return null;
-  if (loading) return <p className="text-gray-500">Loading…</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl px-5 py-4 text-sm bg-red-50 border border-red-200 text-red-700">
+        ⚠ {error}
+      </div>
+    );
+  }
+
   if (!order) return null;
 
   const addr = order.shippingAddress;
@@ -157,7 +202,7 @@ export default function AdminOrderDetailPage() {
         <span
           className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[order.status] ?? 'bg-gray-100 text-gray-700'}`}
         >
-          {order.status}
+          {STATUS_LABELS[order.status] ?? order.status}
         </span>
       </div>
 
@@ -222,7 +267,7 @@ export default function AdminOrderDetailPage() {
       {/* Status update */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
         <h2 className="font-semibold text-gray-800 mb-3">Update status</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <select
             value={newStatus}
             onChange={(e) =>
@@ -232,7 +277,7 @@ export default function AdminOrderDetailPage() {
           >
             {ALL_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {STATUS_LABELS[s]}
               </option>
             ))}
           </select>
@@ -257,7 +302,7 @@ export default function AdminOrderDetailPage() {
             <li key={ev.id} className="flex items-start gap-3 text-sm">
               <span className="mt-0.5 w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
               <div>
-                <p className="font-medium text-gray-900">{ev.eventType}</p>
+                <p className="font-medium text-gray-900">{humaniseEvent(ev.eventType)}</p>
                 {ev.note && (
                   <p className="text-gray-500 text-xs">{ev.note}</p>
                 )}

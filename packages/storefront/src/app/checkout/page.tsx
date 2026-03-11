@@ -32,7 +32,7 @@ const labelStyle = {
 };
 
 export default function CheckoutPage() {
-  const { isLoggedIn, token } = useRequireAuth();
+  const { isLoggedIn, token } = useRequireAuth('/login?redirect=/checkout');
   const { items, totalEuroCents, clearCart } = useCart();
   const router = useRouter();
 

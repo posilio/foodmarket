@@ -30,6 +30,16 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   REFUNDED:   'bg-orange-100 text-orange-700',
 };
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING:    'Pending',
+  PAID:       'Paid',
+  PROCESSING: 'Processing',
+  SHIPPED:    'Shipped',
+  DELIVERED:  'Delivered',
+  CANCELLED:  'Cancelled',
+  REFUNDED:   'Refunded',
+};
+
 interface Order {
   id: string;
   status: OrderStatus;
@@ -82,14 +92,22 @@ export default function AdminOrdersPage() {
           <option value="ALL">All statuses</option>
           {ALL_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {STATUS_LABELS[s]}
             </option>
           ))}
         </select>
       </div>
 
-      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-      {loading && <p className="text-gray-500 text-sm">Loading…</p>}
+      {error && (
+        <div className="rounded-xl px-5 py-4 text-sm bg-red-50 border border-red-200 text-red-700 mb-4">
+          ⚠ {error}
+        </div>
+      )}
+      {loading && (
+        <div className="flex justify-center py-12">
+          <div className="w-6 h-6 rounded-full border-2 border-gray-200 border-t-blue-600 animate-spin" />
+        </div>
+      )}
 
       {!loading && orders.length === 0 && (
         <p className="text-gray-500 text-sm">No orders found.</p>
@@ -137,7 +155,7 @@ export default function AdminOrdersPage() {
                     <span
                       className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[order.status] ?? 'bg-gray-100 text-gray-700'}`}
                     >
-                      {order.status}
+                      {STATUS_LABELS[order.status] ?? order.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">

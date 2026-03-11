@@ -80,7 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}
           >
             <div className="max-w-[1200px] mx-auto px-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
                 {/* Brand */}
                 <div>
                   <p
@@ -103,21 +103,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   >
                     Specialty ingredients from around the world
                   </p>
-                </div>
-
-                {/* About */}
-                <div>
-                  <h4
-                    className="text-xs tracking-widest uppercase mb-4"
-                    style={{ color: 'rgba(247,245,240,0.45)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}
-                  >
-                    About
-                  </h4>
-                  <ul className="space-y-2.5" style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, fontSize: '14px', color: 'rgba(247,245,240,0.65)' }}>
-                    <li>Our story</li>
-                    <li>Quality promise</li>
-                    <li>Sourcing</li>
-                  </ul>
                 </div>
 
                 {/* Shop */}

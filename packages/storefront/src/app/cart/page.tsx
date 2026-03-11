@@ -56,12 +56,25 @@ export default function CartPage() {
                 className="flex items-center gap-4 py-5"
                 style={{ borderBottom: '1px solid var(--color-border)' }}
               >
-                {/* Thumbnail placeholder */}
+                {/* Thumbnail */}
                 <div
-                  className="w-14 h-14 rounded-lg shrink-0 flex items-center justify-center text-2xl"
+                  className="w-14 h-14 rounded-lg shrink-0 overflow-hidden flex items-center justify-center"
                   style={{ backgroundColor: 'var(--color-primary-light)' }}
                 >
-                  🌿
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.productName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="text-lg font-semibold"
+                      style={{ color: 'var(--color-primary)', fontFamily: 'Cormorant Garamond, serif' }}
+                    >
+                      {item.productName.charAt(0)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">

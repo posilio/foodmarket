@@ -8,6 +8,7 @@ export interface CartItem {
   variantLabel: string;
   priceEuroCents: number;
   quantity: number;
+  imageUrl?: string | null;
 }
 
 interface CartContextValue {

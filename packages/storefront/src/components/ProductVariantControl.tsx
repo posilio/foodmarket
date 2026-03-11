@@ -7,9 +7,10 @@ import type { ProductVariant } from '../types';
 interface Props {
   productName: string;
   variants: ProductVariant[];
+  imageUrl?: string | null;
 }
 
-export function ProductVariantControl({ productName, variants }: Props) {
+export function ProductVariantControl({ productName, variants, imageUrl }: Props) {
   const { addItem, updateQuantity } = useCart();
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [qty, setQty] = useState(1);
@@ -25,6 +26,7 @@ export function ProductVariantControl({ productName, variants }: Props) {
       productName,
       variantLabel: selected.label,
       priceEuroCents: selected.priceEuroCents,
+      imageUrl,
     });
     if (qty > 1) {
       updateQuantity(selected.id, qty);
