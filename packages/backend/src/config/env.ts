@@ -39,6 +39,9 @@ export const ADMIN_BOOTSTRAP_SECRET = process.env.ADMIN_BOOTSTRAP_SECRET ?? "";
 // Anthropic — required for the AI-powered PDF invoice parser (FOOD stock import).
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
 
+// Frontend URL — used to build links in transactional emails.
+export const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
+
 // CORS — comma-separated list of allowed origins.
 // In production set to your actual frontend domains.
 export const ALLOWED_ORIGINS = (

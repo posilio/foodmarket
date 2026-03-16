@@ -1,9 +1,8 @@
-// Login page — restyled for the new earthy bio-green design.
 'use client';
-import { Suspense, useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '../../context/AuthContext';
+import { resetPassword } from '../../lib/api';
 
 const inputStyle = {
   border: '1px solid var(--color-border)',
@@ -28,40 +27,59 @@ const labelStyle = {
   marginBottom: '6px',
 };
 
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  );
-}
-
-function LoginForm() {
-  const { login } = useAuth();
+export default function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (searchParams.get('reset') === '1') {
-      setSuccess('Password updated — please sign in with your new password.');
-    }
-  }, [searchParams]);
+  if (!token) {
+    return (
+      <div className="max-w-md mx-auto mt-20 px-4">
+        <div
+          className="rounded-2xl p-8 text-center"
+          style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}
+        >
+          <p
+            className="mb-2"
+            style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '28px', color: 'var(--color-primary)' }}
+          >
+            FoodMarket
+          </p>
+          <p style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, fontSize: '14px', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
+            This reset link is invalid or has expired.
+          </p>
+          <Link
+            href="/forgot-password"
+            style={{ color: 'var(--color-primary)', fontFamily: 'Jost, sans-serif', fontSize: '14px', fontWeight: 500 }}
+          >
+            Request a new link
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
     try {
-      await login(email, password);
-      const params = new URLSearchParams(window.location.search);
-      router.push(params.get('redirect') ?? '/account');
+      await resetPassword(token, password);
+      router.push('/login?reset=1');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -73,7 +91,6 @@ function LoginForm() {
         className="rounded-2xl p-8"
         style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}
       >
-        {/* Brand */}
         <p
           className="text-center mb-2"
           style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '28px', color: 'var(--color-primary)' }}
@@ -84,34 +101,32 @@ function LoginForm() {
           className="text-center mb-8"
           style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '22px', color: 'var(--color-text)' }}
         >
-          Welcome back
+          Choose a new password
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label style={labelStyle}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Password</label>
+            <label style={labelStyle}>New password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              minLength={8}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Confirm password</label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              required
               style={inputStyle}
             />
           </div>
 
-          {success && (
-            <p className="text-sm" style={{ fontFamily: 'Jost, sans-serif', color: 'var(--color-primary)' }}>{success}</p>
-          )}
           {error && (
             <p className="text-sm text-red-500" style={{ fontFamily: 'Jost, sans-serif' }}>{error}</p>
           )}
@@ -129,20 +144,8 @@ function LoginForm() {
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Updating…' : 'Update password'}
           </button>
-
-          <p className="text-center text-sm" style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}>
-            <Link href="/forgot-password" style={{ color: 'var(--color-text-muted)', fontWeight: 300 }}>
-              Forgot password?
-            </Link>
-          </p>
-          <p className="text-center text-sm" style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}>
-            Don&apos;t have an account?{' '}
-            <Link href="/register" style={{ color: 'var(--color-primary)', fontWeight: 500 }}>
-              Sign up
-            </Link>
-          </p>
         </form>
       </div>
     </div>

@@ -7,6 +7,8 @@ import {
   getCustomerById,
   refreshAccessToken,
   revokeRefreshToken,
+  forgotPassword,
+  resetPassword,
 } from "../services/auth.service";
 
 export async function register(req: Request, res: Response, next: NextFunction) {
@@ -97,6 +99,33 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
       await revokeRefreshToken(refreshToken);
     }
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function forgotPasswordHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = req.body as { email?: string };
+    if (email && typeof email === "string") {
+      await forgotPassword(email.trim().toLowerCase());
+    }
+    // Always 200 — never reveal whether the email exists.
+    res.json({ message: "If that email exists you will receive a reset link" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPasswordHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { token, password } = req.body as { token?: string; password?: string };
+    if (!token || typeof token !== "string" || !password || typeof password !== "string") {
+      res.status(400).json({ error: "token and password are required" });
+      return;
+    }
+    await resetPassword(token, password);
+    res.json({ message: "Password updated" });
   } catch (err) {
     next(err);
   }

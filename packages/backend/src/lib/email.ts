@@ -2,7 +2,7 @@
 // All send functions degrade gracefully: if the API key is missing or the
 // Resend call fails the error is logged but never re-thrown.
 import { Resend } from "resend";
-import { RESEND_API_KEY, RESEND_FROM } from "../config/env";
+import { RESEND_API_KEY, RESEND_FROM, FRONTEND_URL } from "../config/env";
 import logger from "./logger";
 
 // "dummy" prevents the SDK from throwing on construction when key is absent
@@ -117,6 +117,49 @@ export async function sendOrderConfirmation(
     logger.info({ emailId: result.data?.id }, "Order confirmation email sent");
   } catch (err) {
     logger.error({ err }, "Failed to send order confirmation email");
+  }
+}
+
+export async function sendPasswordResetEmail(
+  customerEmail: string,
+  rawToken: string
+): Promise<void> {
+  if (!canSendEmail()) {
+    logger.warn("Email skipped: RESEND_API_KEY not set");
+    return;
+  }
+
+  const resetUrl = `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+  const html = emailWrapper(`
+    <h1 style="font-size:22px;margin-bottom:8px">Reset your password</h1>
+    <p style="color:#374151;margin-bottom:24px">
+      We received a request to reset the password for your FoodMarket account.
+      Click the button below to choose a new password. This link expires in 15 minutes.
+    </p>
+    <a href="${resetUrl}"
+       style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:bold;font-size:15px">
+      Reset password
+    </a>
+    <p style="margin-top:24px;color:#6b7280;font-size:13px">
+      If you did not request a password reset, you can safely ignore this email.
+      Your password will not change.
+    </p>
+    <p style="margin-top:8px;color:#9ca3af;font-size:12px;word-break:break-all">
+      Or copy this link: ${resetUrl}
+    </p>
+  `);
+
+  try {
+    const result = await resend.emails.send({
+      from: RESEND_FROM,
+      to: customerEmail,
+      subject: "Reset your FoodMarket password",
+      html,
+    });
+    logger.info({ emailId: result.data?.id }, "Password reset email sent");
+  } catch (err) {
+    logger.error({ err }, "Failed to send password reset email");
   }
 }
 

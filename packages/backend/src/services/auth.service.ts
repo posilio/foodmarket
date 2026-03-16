@@ -6,6 +6,7 @@ import crypto from "crypto";
 import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
 import { JWT_SECRET, JWT_ACCESS_EXPIRES_IN } from "../config/env";
+import { sendPasswordResetEmail } from "../lib/email";
 
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TOKEN_TTL_DAYS = 30;
@@ -144,4 +145,51 @@ export async function getCustomerById(id: string) {
     where: { id },
     select: safeCustomerSelect,
   });
+}
+
+const RESET_TOKEN_TTL_MINUTES = 15;
+
+export async function forgotPassword(email: string): Promise<void> {
+  const customer = await prisma.customer.findUnique({ where: { email } });
+
+  // Always resolve — never reveal whether the email exists.
+  if (!customer || !customer.isActive) return;
+
+  // Clean up any existing tokens for this customer first.
+  await prisma.passwordResetToken.deleteMany({ where: { customerId: customer.id } });
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000);
+
+  await prisma.passwordResetToken.create({
+    data: { tokenHash, customerId: customer.id, expiresAt },
+  });
+
+  await sendPasswordResetEmail(customer.email, rawToken);
+}
+
+export async function resetPassword(rawToken: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 8) {
+    throw new AppError("Password must be at least 8 characters", 400);
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+  const stored = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+
+  if (!stored || stored.expiresAt < new Date()) {
+    throw new AppError("Invalid or expired reset token", 400);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+  await prisma.$transaction([
+    prisma.customer.update({
+      where: { id: stored.customerId },
+      data: { passwordHash },
+    }),
+    prisma.passwordResetToken.delete({ where: { tokenHash } }),
+    prisma.refreshToken.deleteMany({ where: { customerId: stored.customerId } }),
+  ]);
 }
