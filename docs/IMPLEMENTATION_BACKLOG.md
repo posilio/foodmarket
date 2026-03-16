@@ -779,7 +779,7 @@ Once turnover exceeds €20,000, KOR must be deactivated and this ticket must be
 | **ID** | FOOD-028 |
 | **Title** | Storefront product search |
 | **Priority** | P3 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront |
 | **Dependencies** | None |
 
@@ -872,6 +872,6 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | FOOD-025 | Order cancellation + Mollie refund | P2 | TODO | Backend + Admin |
 | FOOD-026 | Low stock email alert (daily digest) | P2 | DONE | Backend |
 | FOOD-027 | VAT handling (NL 9%/21%) | P2 | DEFERRED | Backend + Storefront |
-| FOOD-028 | Storefront search | P3 | TODO | Backend + Storefront |
+| FOOD-028 | Storefront search | P3 | DONE | Backend + Storefront |
 | FOOD-029 | Product reviews | P3 | TODO | Backend + Storefront |
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |

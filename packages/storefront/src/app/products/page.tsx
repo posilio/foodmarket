@@ -1,18 +1,26 @@
-// Products listing page — 4-column grid with category filter pills.
+// Products listing page — category filter pills + debounced search.
+import { Suspense } from 'react';
 import { getProducts, getCategories } from '../../lib/api';
 import { ProductCard } from '../../components/ProductCard';
 import { CategoryFilterPills } from '../../components/CategoryFilterPills';
+import { SearchInput } from '../../components/SearchInput';
 
 interface ProductsPageProps {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; q?: string }>;
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  const { category } = await searchParams;
+  const { category, q } = await searchParams;
   const [products, categories] = await Promise.all([
-    getProducts(category),
+    getProducts(category, q),
     getCategories(),
   ]);
+
+  const heading = q
+    ? `Results for "${q}"`
+    : category
+    ? (categories.find(c => c.slug === category)?.name ?? 'Products')
+    : 'All Products';
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-12">
@@ -27,9 +35,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             lineHeight: 1.1,
           }}
         >
-          {category
-            ? categories.find(c => c.slug === category)?.name ?? 'Products'
-            : 'All Products'}
+          {heading}
         </h1>
         <p
           className="mt-2"
@@ -44,8 +50,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         </p>
       </div>
 
-      {/* Filter pills */}
-      <div className="mb-8">
+      {/* Search + filter row */}
+      <div className="mb-8 flex flex-col gap-4">
+        <Suspense>
+          <SearchInput initialValue={q ?? ''} />
+        </Suspense>
         <CategoryFilterPills categories={categories} activeSlug={category} />
       </div>
 
@@ -56,7 +65,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
         >
           <p style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif' }}>
-            No products found in this category.
+            {q ? `No products found for "${q}".` : 'No products found in this category.'}
           </p>
         </div>
       ) : (

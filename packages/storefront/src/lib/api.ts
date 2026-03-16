@@ -25,9 +25,10 @@ async function apiFetch<T>(
 
 // Products list now returns paginated shape — pass limit=200 so all active products are returned
 // for the server-rendered storefront listing page (storefront has no client-side load-more).
-export async function getProducts(categorySlug?: string): Promise<Product[]> {
+export async function getProducts(categorySlug?: string, q?: string): Promise<Product[]> {
   const params = new URLSearchParams({ limit: "200" });
   if (categorySlug) params.set("category", categorySlug);
+  if (q) params.set("q", q);
   const data = await apiFetch<ApiResponse<Product[]> & { nextCursor: string | null; total: number }>(
     `/api/v1/products?${params.toString()}`,
     { cache: "no-store" }

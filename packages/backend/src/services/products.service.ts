@@ -17,14 +17,24 @@ export async function getAllProducts(options?: {
   categorySlug?: string;
   activeOnly?: boolean;
   pagination?: PaginationParams;
+  q?: string;
 }): Promise<PagedResult<Awaited<ReturnType<typeof prisma.product.findMany>>[number]>> {
   const activeOnly = options?.activeOnly ?? true;
   const pagination = options?.pagination ?? {};
+  const q = options?.q?.trim();
 
   const where = {
     ...(activeOnly ? { isActive: true } : {}),
     ...(options?.categorySlug
       ? { category: { slug: options.categorySlug } }
+      : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
       : {}),
   };
 
