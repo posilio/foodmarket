@@ -18,7 +18,7 @@ beforeAll(async () => {
     .post('/api/v1/auth/register')
     .send({ email: TEST_EMAIL, password: TEST_PASSWORD, firstName: 'Orders', lastName: 'Test' });
 
-  customerId = (reg.body.data as { id: string }).id;
+  customerId = (reg.body.data as { customer: { id: string } }).customer.id;
 
   const login = await request(app)
     .post('/api/v1/auth/login')
@@ -29,6 +29,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Clean up: remove the test customer (cascades to orders, addresses via schema)
+  await prisma.refreshToken.deleteMany({ where: { customerId } });
   await prisma.customer.deleteMany({ where: { email: TEST_EMAIL } });
   await prisma.$disconnect();
 });

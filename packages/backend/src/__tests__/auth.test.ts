@@ -12,6 +12,10 @@ const TEST_PASSWORD = 'testpassword123';
 
 afterAll(async () => {
   // Clean up the test customer created during the suite
+  const customer = await prisma.customer.findUnique({ where: { email: TEST_EMAIL } });
+  if (customer) {
+    await prisma.refreshToken.deleteMany({ where: { customerId: customer.id } });
+  }
   await prisma.customer.deleteMany({ where: { email: TEST_EMAIL } });
   await prisma.$disconnect();
 });
@@ -39,12 +43,12 @@ describe('POST /api/v1/auth/register', () => {
       .send({ email: TEST_EMAIL, password: TEST_PASSWORD, firstName: 'Test', lastName: 'User' });
 
     expect(res.status).toBe(201);
-    expect(res.body.data).toMatchObject({
+    expect(res.body.data.customer).toMatchObject({
       email: TEST_EMAIL,
       firstName: 'Test',
       lastName: 'User',
     });
-    expect(res.body.data).not.toHaveProperty('passwordHash');
+    expect(res.body.data.customer).not.toHaveProperty('passwordHash');
   });
 
   it('returns 409 when email is already registered', async () => {
