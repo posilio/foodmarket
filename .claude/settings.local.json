@@ -23,7 +23,16 @@
       "Bash(npx tsc:*)",
       "Bash(Get-Process:*)",
       "Bash(powershell:*)",
-      "Bash(node_modules/.bin/prisma.cmd generate:*)"
+      "Bash(node_modules/.bin/prisma.cmd generate:*)",
+      "Bash(find /c/dev/FoodMarket/packages/storefront/src -name \"*.tsx\" -o -name \"*.ts\" | xargs grep -l \"loading\\\\|skeleton\\\\|Suspense\" | head -10)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(while read:*)",
+      "Bash(do echo:*)",
+      "Read(//c/dev/FoodMarket/**)",
+      "Bash(done)"
     ]
   }
 }

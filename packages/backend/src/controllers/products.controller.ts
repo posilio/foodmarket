@@ -15,8 +15,10 @@ export async function listProducts(
   try {
     const categorySlug =
       typeof req.query.category === "string" ? req.query.category : undefined;
-    const products = await getAllProducts({ categorySlug });
-    res.json({ data: products });
+    const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+    const result = await getAllProducts({ categorySlug, pagination: { limit, cursor } });
+    res.json(result);
   } catch (err) {
     next(err);
   }

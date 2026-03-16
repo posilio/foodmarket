@@ -9,12 +9,17 @@ import {
   updateOrderStatus,
   getAllProductsAdmin,
   createProduct,
+  updateProduct,
+  addVariant,
+  updateVariant,
   updateVariantStock,
+  getLowStockVariants,
 } from "../services/admin.service";
 import {
   getAllCustomers,
   getCustomerByIdAdmin,
 } from "../services/customers.service";
+import { getAllCategories } from "../services/products.service";
 import { AppError } from "../lib/errors";
 
 const router = Router();
@@ -29,8 +34,10 @@ router.use("/admin", requireAdmin);
 router.get("/admin/orders", async (req, res, next) => {
   try {
     const status = req.query["status"] as string | undefined;
-    const orders = await getAllOrders(status);
-    res.json({ data: orders });
+    const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
+    const cursor = req.query["cursor"] as string | undefined;
+    const result = await getAllOrders(status, { limit, cursor });
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -68,10 +75,24 @@ router.patch("/admin/orders/:id/status", async (req, res, next) => {
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
-router.get("/admin/products", async (_req, res, next) => {
+// IMPORTANT: /admin/products/low-stock must be registered BEFORE /admin/products/:id
+// to prevent Express from matching "low-stock" as the :id param.
+router.get("/admin/products/low-stock", async (req, res, next) => {
   try {
-    const products = await getAllProductsAdmin();
-    res.json({ data: products });
+    const threshold = req.query["threshold"] ? Number(req.query["threshold"]) : 5;
+    const variants = await getLowStockVariants(threshold);
+    res.json({ data: variants, count: variants.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/admin/products", async (req, res, next) => {
+  try {
+    const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
+    const cursor = req.query["cursor"] as string | undefined;
+    const result = await getAllProductsAdmin({ limit, cursor });
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -79,12 +100,13 @@ router.get("/admin/products", async (_req, res, next) => {
 
 router.post("/admin/products", async (req, res, next) => {
   try {
-    const { name, categoryId, countryOfOrigin, description, variants } =
+    const { name, categoryId, countryOfOrigin, description, imageUrl, variants } =
       req.body as {
         name?: string;
         categoryId?: string;
         countryOfOrigin?: string;
         description?: string;
+        imageUrl?: string;
         variants?: unknown[];
       };
 
@@ -100,9 +122,36 @@ router.post("/admin/products", async (req, res, next) => {
       categoryId,
       countryOfOrigin,
       description,
+      imageUrl,
       variants: variants as Parameters<typeof createProduct>[0]["variants"],
     });
     res.status(201).json({ data: product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/admin/products/:id", async (req, res, next) => {
+  try {
+    const { name, description, imageUrl, countryOfOrigin, categoryId, isActive } =
+      req.body as {
+        name?: string;
+        description?: string;
+        imageUrl?: string;
+        countryOfOrigin?: string;
+        categoryId?: string;
+        isActive?: boolean;
+      };
+
+    const product = await updateProduct(String(req.params["id"]), {
+      name,
+      description,
+      imageUrl,
+      countryOfOrigin,
+      categoryId,
+      isActive,
+    });
+    res.json({ data: product });
   } catch (err) {
     next(err);
   }
@@ -133,12 +182,76 @@ router.patch("/admin/products/:id/stock", async (req, res, next) => {
   }
 });
 
+router.post("/admin/products/:id/variants", async (req, res, next) => {
+  try {
+    const { sku, label, priceEuroCents, stockQuantity, weightGrams } =
+      req.body as {
+        sku?: string;
+        label?: string;
+        priceEuroCents?: number;
+        stockQuantity?: number;
+        weightGrams?: number;
+      };
+
+    if (!sku || !label || priceEuroCents === undefined) {
+      throw new AppError("sku, label, and priceEuroCents are required", 400);
+    }
+    if (!Number.isInteger(priceEuroCents) || priceEuroCents < 0) {
+      throw new AppError("priceEuroCents must be a non-negative integer", 400);
+    }
+
+    const variant = await addVariant(String(req.params["id"]), {
+      sku,
+      label,
+      priceEuroCents,
+      stockQuantity,
+      weightGrams,
+    });
+    res.status(201).json({ data: variant });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/admin/products/:id/variants/:variantId", async (req, res, next) => {
+  try {
+    const { label, priceEuroCents, isActive, ean } = req.body as {
+      label?: string;
+      priceEuroCents?: number;
+      isActive?: boolean;
+      ean?: string | null;
+    };
+
+    const variant = await updateVariant(
+      String(req.params["id"]),
+      String(req.params["variantId"]),
+      { label, priceEuroCents, isActive, ean }
+    );
+    res.json({ data: variant });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+router.get("/admin/categories", async (_req, res, next) => {
+  try {
+    const categories = await getAllCategories();
+    res.json({ data: categories });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── Customers ────────────────────────────────────────────────────────────────
 
-router.get("/admin/customers", async (_req, res, next) => {
+router.get("/admin/customers", async (req, res, next) => {
   try {
-    const customers = await getAllCustomers();
-    res.json({ data: customers });
+    const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
+    const cursor = req.query["cursor"] as string | undefined;
+    const result = await getAllCustomers({ limit, cursor });
+    res.json(result);
   } catch (err) {
     next(err);
   }

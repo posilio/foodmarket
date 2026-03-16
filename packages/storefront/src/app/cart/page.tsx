@@ -120,7 +120,7 @@ export default function CartPage() {
                   className="w-20 text-right text-sm shrink-0"
                   style={{ color: 'var(--color-accent-warm)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}
                 >
-                  {formatPrice(item.priceEuroCents * item.quantity)}
+                  {formatPrice(item.unitPriceEuroCents * item.quantity)}
                 </p>
 
                 <button

@@ -25,3 +25,7 @@ Thumbs.db
 # Editor directories
 .vscode/
 .idea/
+
+# User-uploaded images — keep the directory tracked via .gitkeep
+packages/backend/uploads/*
+!packages/backend/uploads/.gitkeep

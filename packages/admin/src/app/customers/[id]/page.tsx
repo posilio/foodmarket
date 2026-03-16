@@ -1,12 +1,11 @@
 // Admin customer detail — profile info, order history, and addresses.
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
+import { adminApi } from '../../../lib/api';
 import { formatPrice, formatDate } from '../../../lib/format';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const ORDER_STATUS_STYLES: Record<string, string> = {
   PENDING:    'bg-yellow-100 text-yellow-800',
@@ -61,33 +60,21 @@ interface Customer {
 
 export default function AdminCustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { token, isLoggedIn } = useAuth();
-  const router = useRouter();
+  const { token } = useAuth();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/login');
-      return;
-    }
-    fetch(`${API_URL}/api/v1/admin/customers/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ data: Customer }>;
-      })
-      .then((body) => setCustomer(body.data))
+    adminApi.customers
+      .get(token!, id)
+      .then((body) => setCustomer(body.data as unknown as Customer))
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Failed to load customer')
       )
       .finally(() => setLoading(false));
-  }, [id, token, isLoggedIn, router]);
-
-  if (!isLoggedIn) return null;
+  }, [id, token]);
 
   if (loading) {
     return (

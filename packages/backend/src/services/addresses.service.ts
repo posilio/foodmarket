@@ -26,3 +26,10 @@ export async function createAddress(
     },
   });
 }
+
+export async function getAddressesByCustomer(customerId: string) {
+  return prisma.address.findMany({
+    where: { customerId },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+  });
+}

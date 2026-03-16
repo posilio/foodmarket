@@ -1,12 +1,11 @@
 // Admin order detail — full order info, event timeline, and status update.
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
+import { adminApi } from '../../../lib/api';
 import { formatPrice, formatDate } from '../../../lib/format';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const ALL_STATUSES = [
   'PENDING',
@@ -97,8 +96,7 @@ interface Order {
 
 export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { token, isLoggedIn } = useAuth();
-  const router = useRouter();
+  const { token } = useAuth();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,51 +106,25 @@ export default function AdminOrderDetailPage() {
   const [updateMsg, setUpdateMsg] = useState('');
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/login');
-      return;
-    }
-    fetch(`${API_URL}/api/v1/admin/orders/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ data: Order }>;
-      })
+    adminApi.orders
+      .get(token!, id)
       .then((body) => {
-        setOrder(body.data);
-        setNewStatus(body.data.status);
+        setOrder(body.data as unknown as Order);
+        setNewStatus(body.data.status as OrderStatus);
       })
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : 'Failed to load order')
       )
       .finally(() => setLoading(false));
-  }, [id, token, isLoggedIn, router]);
+  }, [id, token]);
 
   async function handleStatusUpdate() {
     if (!order) return;
     setUpdating(true);
     setUpdateMsg('');
     try {
-      const res = await fetch(
-        `${API_URL}/api/v1/admin/orders/${order.id}/status`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { message?: string }).message ?? `HTTP ${res.status}`
-        );
-      }
-      const body = await res.json() as { data: Order };
-      setOrder(body.data);
+      const body = await adminApi.orders.updateStatus(token!, order.id, newStatus);
+      setOrder(body.data as unknown as Order);
       setUpdateMsg('Status updated successfully.');
     } catch (err) {
       setUpdateMsg(
@@ -162,8 +134,6 @@ export default function AdminOrderDetailPage() {
       setUpdating(false);
     }
   }
-
-  if (!isLoggedIn) return null;
 
   if (loading) {
     return (

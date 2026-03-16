@@ -4,6 +4,7 @@ import { OrderStatus } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
 import { sendOrderConfirmation } from "../lib/email";
+import { SHIPPING_FLAT_RATE_CENTS } from "../config/env";
 
 export interface OrderLineInput {
   variantId: string;
@@ -69,11 +70,13 @@ export async function createOrder(input: CreateOrderInput) {
     }
   }
 
-  // ── 6. Calculate total server-side ────────────────────────────────────────
-  const totalEuroCents = lines.reduce((sum, line) => {
+  // ── 6. Calculate total server-side (lines + flat-rate shipping) ───────────
+  const lineTotal = lines.reduce((sum, line) => {
     const variant = variantMap.get(line.variantId)!;
     return sum + variant.priceEuroCents * line.quantity;
   }, 0);
+  const shippingCents = SHIPPING_FLAT_RATE_CENTS;
+  const totalEuroCents = lineTotal + shippingCents;
 
   // ── 7. Validate the shipping address belongs to this customer ─────────────
   const address = await prisma.address.findFirst({
@@ -83,15 +86,18 @@ export async function createOrder(input: CreateOrderInput) {
     throw new AppError("Invalid shipping address", 400);
   }
 
-  // ── 8. Single transaction: create order + lines + decrement stock + event ──
+  // ── 8. Single transaction: create order + lines + event (no stock decrement here) ──
+  // Stock is decremented in the payment webhook after Mollie confirms payment.
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({
       data: {
         customerId,
         shippingAddressId,
         totalEuroCents,
+        shippingCents,
         notes,
         status: OrderStatus.PENDING,
+        stockReservedUntil: new Date(Date.now() + 30 * 60 * 1000),
         lines: {
           create: lines.map((line) => ({
             variantId: line.variantId,
@@ -110,17 +116,14 @@ export async function createOrder(input: CreateOrderInput) {
       include: orderInclude,
     });
 
-    // Decrement stock for each variant
-    await Promise.all(
-      lines.map((line) =>
-        tx.productVariant.update({
-          where: { id: line.variantId },
-          data: { stockQuantity: { decrement: line.quantity } },
-        })
-      )
-    );
-
     return newOrder;
+  });
+
+  // Re-fetch with full includes so TypeScript knows the relations are present.
+  // ($transaction inference loses the `include` shape; re-fetch is the cleanest fix.)
+  const fullOrder = await prisma.order.findUniqueOrThrow({
+    where: { id: order.id },
+    include: orderInclude,
   });
 
   // Send confirmation email outside the transaction — failures don't affect the order
@@ -129,10 +132,10 @@ export async function createOrder(input: CreateOrderInput) {
     select: { email: true },
   });
   if (customer) {
-    await sendOrderConfirmation(order, customer.email);
+    await sendOrderConfirmation(fullOrder, customer.email);
   }
 
-  return order;
+  return fullOrder;
 }
 
 export async function getOrdersByCustomer(customerId: string) {

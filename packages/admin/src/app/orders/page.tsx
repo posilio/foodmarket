@@ -1,12 +1,10 @@
-// Admin orders list — all orders with status filter and quick links.
+// Admin orders list — all orders with status filter, total count, and load-more.
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import { adminApi, type OrderSummary } from '../../lib/api';
 import { formatPrice, formatDate } from '../../lib/format';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const ALL_STATUSES = [
   'PENDING',
@@ -40,50 +38,49 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   REFUNDED:   'Refunded',
 };
 
-interface Order {
-  id: string;
-  status: OrderStatus;
-  totalEuroCents: number;
-  createdAt: string;
-  customer: { firstName: string; lastName: string; email: string };
-}
-
 export default function AdminOrdersPage() {
-  const { token, isLoggedIn } = useAuth();
-  const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const { token } = useAuth();
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  const fetchOrders = useCallback(
+    async (cursor?: string, append = false) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      try {
+        const result = await adminApi.orders.list(
+          token!,
+          filter === 'ALL' ? undefined : filter,
+          cursor
+        );
+        setOrders((prev) => (append ? [...prev, ...result.data] : result.data));
+        setNextCursor(result.nextCursor);
+        setTotal(result.total);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load');
+      } finally {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
+    },
+    [token, filter]
+  );
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/login');
-      return;
-    }
-    const url =
-      filter === 'ALL'
-        ? `${API_URL}/api/v1/admin/orders`
-        : `${API_URL}/api/v1/admin/orders?status=${filter}`;
-    setLoading(true);
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ data: Order[] }>;
-      })
-      .then((body) => setOrders(body.data))
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Failed to load')
-      )
-      .finally(() => setLoading(false));
-  }, [isLoggedIn, token, filter, router]);
-
-  if (!isLoggedIn) return null;
+    void fetchOrders();
+  }, [fetchOrders]);
 
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Orders{total > 0 && <span className="ml-2 text-gray-400 font-normal text-lg">({total})</span>}
+        </h1>
         <select
           value={filter}
           onChange={(e) => setFilter(e.currentTarget.value as OrderStatus | 'ALL')}
@@ -114,66 +111,70 @@ export default function AdminOrdersPage() {
       )}
 
       {!loading && orders.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">
-                  Order
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">
-                  Customer
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">
-                  Total
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">
-                  Status
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">
-                  Date
-                </th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                    {order.id.slice(0, 8)}…
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">
-                      {order.customer.firstName} {order.customer.lastName}
-                    </p>
-                    <p className="text-xs text-gray-400">{order.customer.email}</p>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900">
-                    {formatPrice(order.totalEuroCents)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[order.status] ?? 'bg-gray-100 text-gray-700'}`}
-                    >
-                      {STATUS_LABELS[order.status] ?? order.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {formatDate(order.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/orders/${order.id}`}
-                      className="text-blue-600 hover:underline text-xs font-medium"
-                    >
-                      View →
-                    </Link>
-                  </td>
+        <>
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Order</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Customer</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Total</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
+                  <th className="px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {orders.map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                      {order.id.slice(0, 8)}…
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">
+                        {order.customer.firstName} {order.customer.lastName}
+                      </p>
+                      <p className="text-xs text-gray-400">{order.customer.email}</p>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      {formatPrice(order.totalEuroCents)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[order.status as OrderStatus] ?? 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {STATUS_LABELS[order.status as OrderStatus] ?? order.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {formatDate(order.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="text-blue-600 hover:underline text-xs font-medium"
+                      >
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {nextCursor && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => void fetchOrders(nextCursor, true)}
+                disabled={loadingMore}
+                className="px-6 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </>
   );

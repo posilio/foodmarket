@@ -25,8 +25,9 @@ export function ProductVariantControl({ productName, variants, imageUrl }: Props
       variantId: selected.id,
       productName,
       variantLabel: selected.label,
-      priceEuroCents: selected.priceEuroCents,
+      unitPriceEuroCents: selected.priceEuroCents,
       imageUrl,
+      maxStock: selected.stockQuantity,
     });
     if (qty > 1) {
       updateQuantity(selected.id, qty);

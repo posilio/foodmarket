@@ -1,6 +1,7 @@
 // Business logic for products and categories.
 // All database access goes through the Prisma singleton — never directly from controllers.
 import prisma from "../lib/prisma";
+import { PaginationParams, PagedResult } from "./admin.service";
 
 const productInclude = {
   category: true,
@@ -15,19 +16,40 @@ const productInclude = {
 export async function getAllProducts(options?: {
   categorySlug?: string;
   activeOnly?: boolean;
-}) {
+  pagination?: PaginationParams;
+}): Promise<PagedResult<Awaited<ReturnType<typeof prisma.product.findMany>>[number]>> {
   const activeOnly = options?.activeOnly ?? true;
+  const pagination = options?.pagination ?? {};
 
-  return prisma.product.findMany({
-    where: {
-      ...(activeOnly ? { isActive: true } : {}),
-      ...(options?.categorySlug
-        ? { category: { slug: options.categorySlug } }
-        : {}),
-    },
-    include: productInclude,
-    orderBy: { name: "asc" },
-  });
+  const where = {
+    ...(activeOnly ? { isActive: true } : {}),
+    ...(options?.categorySlug
+      ? { category: { slug: options.categorySlug } }
+      : {}),
+  };
+
+  const take = Math.min(Number(pagination.limit) || 100, 200);
+  const cursor = pagination.cursor ? { id: pagination.cursor } : undefined;
+
+  const [items, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: productInclude,
+      take: take + 1,
+      skip: cursor ? 1 : 0,
+      cursor,
+      orderBy: { name: "asc" },
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  let nextCursor: string | null = null;
+  if (items.length > take) {
+    const next = items.pop()!;
+    nextCursor = next.id;
+  }
+
+  return { data: items, nextCursor, total };
 }
 
 export async function getProductBySlug(slug: string) {

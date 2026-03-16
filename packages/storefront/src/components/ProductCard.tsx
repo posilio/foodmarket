@@ -39,7 +39,8 @@ export function ProductCard({ product }: Props) {
       variantId: cheapest.id,
       productName: product.name,
       variantLabel: cheapest.label,
-      priceEuroCents: cheapest.priceEuroCents,
+      unitPriceEuroCents: cheapest.priceEuroCents,
+      maxStock: cheapest.stockQuantity,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);

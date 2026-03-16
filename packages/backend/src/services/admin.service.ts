@@ -27,19 +27,57 @@ const adminProductInclude = {
   dietaryLabels: true,
 } as const;
 
+// ─── Pagination helper ────────────────────────────────────────────────────────
+
+export interface PaginationParams {
+  limit?: number;
+  cursor?: string;
+}
+
+export interface PagedResult<T> {
+  data: T[];
+  nextCursor: string | null;
+  total: number;
+}
+
+function parsePagination(params: PaginationParams) {
+  const take = Math.min(Number(params.limit) || 20, 100);
+  const cursor = params.cursor ? { id: params.cursor } : undefined;
+  return { take, cursor };
+}
+
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
-export async function getAllOrders(statusFilter?: string) {
+export async function getAllOrders(
+  statusFilter?: string,
+  pagination: PaginationParams = {}
+): Promise<PagedResult<Awaited<ReturnType<typeof prisma.order.findMany>>[number]>> {
   const where =
     statusFilter && statusFilter in OrderStatus
       ? { status: statusFilter as OrderStatus }
       : {};
 
-  return prisma.order.findMany({
-    where,
-    include: adminOrderInclude,
-    orderBy: { createdAt: "desc" },
-  });
+  const { take, cursor } = parsePagination(pagination);
+
+  const [items, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: adminOrderInclude,
+      take: take + 1,
+      skip: cursor ? 1 : 0,
+      cursor,
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  let nextCursor: string | null = null;
+  if (items.length > take) {
+    const next = items.pop()!;
+    nextCursor = next.id;
+  }
+
+  return { data: items, nextCursor, total };
 }
 
 export async function getOrderByIdAdmin(id: string) {
@@ -94,11 +132,29 @@ export async function updateOrderStatus(id: string, newStatus: OrderStatus) {
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
-export async function getAllProductsAdmin() {
-  return prisma.product.findMany({
-    include: adminProductInclude,
-    orderBy: { createdAt: "desc" },
-  });
+export async function getAllProductsAdmin(
+  pagination: PaginationParams = {}
+): Promise<PagedResult<Awaited<ReturnType<typeof prisma.product.findMany>>[number]>> {
+  const { take, cursor } = parsePagination(pagination);
+
+  const [items, total] = await Promise.all([
+    prisma.product.findMany({
+      include: adminProductInclude,
+      take: take + 1,
+      skip: cursor ? 1 : 0,
+      cursor,
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.product.count(),
+  ]);
+
+  let nextCursor: string | null = null;
+  if (items.length > take) {
+    const next = items.pop()!;
+    nextCursor = next.id;
+  }
+
+  return { data: items, nextCursor, total };
 }
 
 function generateSlug(name: string): string {
@@ -114,6 +170,7 @@ export interface CreateProductInput {
   categoryId: string;
   countryOfOrigin: string;
   description?: string;
+  imageUrl?: string;
   variants: Array<{
     label: string;
     sku: string;
@@ -141,6 +198,7 @@ export async function createProduct(input: CreateProductInput) {
       categoryId: input.categoryId,
       countryOfOrigin: input.countryOfOrigin,
       description: input.description,
+      imageUrl: input.imageUrl,
       variants: {
         create: input.variants.map((v) => ({
           label: v.label,
@@ -152,6 +210,121 @@ export async function createProduct(input: CreateProductInput) {
       },
     },
     include: adminProductInclude,
+  });
+}
+
+export interface UpdateProductInput {
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  countryOfOrigin?: string;
+  categoryId?: string;
+  isActive?: boolean;
+}
+
+export async function updateProduct(id: string, input: UpdateProductInput) {
+  const product = await prisma.product.findUnique({ where: { id } });
+  if (!product) throw new AppError("Product not found", 404);
+
+  // Regenerate slug if name changed
+  let slug: string | undefined;
+  if (input.name && input.name !== product.name) {
+    const base = generateSlug(input.name);
+    const existing = await prisma.product.findFirst({
+      where: { slug: base, NOT: { id } },
+    });
+    slug = existing ? `${base}-${Date.now()}` : base;
+  }
+
+  return prisma.product.update({
+    where: { id },
+    data: {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(slug !== undefined && { slug }),
+      ...(input.description !== undefined && { description: input.description }),
+      ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
+      ...(input.countryOfOrigin !== undefined && { countryOfOrigin: input.countryOfOrigin }),
+      ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
+      ...(input.isActive !== undefined && { isActive: input.isActive }),
+    },
+    include: adminProductInclude,
+  });
+}
+
+export interface AddVariantInput {
+  sku: string;
+  label: string;
+  priceEuroCents: number;
+  stockQuantity?: number;
+  weightGrams?: number;
+}
+
+export async function addVariant(productId: string, input: AddVariantInput) {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new AppError("Product not found", 404);
+
+  return prisma.productVariant.create({
+    data: {
+      productId,
+      sku: input.sku,
+      label: input.label,
+      priceEuroCents: input.priceEuroCents,
+      stockQuantity: input.stockQuantity ?? 0,
+      weightGrams: input.weightGrams,
+    },
+  });
+}
+
+export interface UpdateVariantInput {
+  label?: string;
+  priceEuroCents?: number;
+  isActive?: boolean;
+  ean?: string | null;
+}
+
+export async function updateVariant(
+  productId: string,
+  variantId: string,
+  input: UpdateVariantInput
+) {
+  const variant = await prisma.productVariant.findFirst({
+    where: { id: variantId, productId },
+  });
+  if (!variant) throw new AppError("Variant not found for this product", 404);
+
+  return prisma.productVariant.update({
+    where: { id: variantId },
+    data: {
+      ...(input.label !== undefined && { label: input.label }),
+      ...(input.priceEuroCents !== undefined && { priceEuroCents: input.priceEuroCents }),
+      ...(input.isActive !== undefined && { isActive: input.isActive }),
+      // Convert empty string to null so the unique constraint works correctly
+      ...(input.ean !== undefined && { ean: input.ean === "" ? null : input.ean }),
+    },
+  });
+}
+
+// ─── Low stock alerts ─────────────────────────────────────────────────────────
+
+export interface LowStockVariant {
+  id: string;
+  sku: string;
+  label: string;
+  stockQuantity: number;
+  product: { name: string; slug: string };
+}
+
+export async function getLowStockVariants(threshold = 5): Promise<LowStockVariant[]> {
+  return prisma.productVariant.findMany({
+    where: { stockQuantity: { lte: threshold }, isActive: true },
+    select: {
+      id: true,
+      sku: true,
+      label: true,
+      stockQuantity: true,
+      product: { select: { name: true, slug: true } },
+    },
+    orderBy: { stockQuantity: 'asc' },
   });
 }
 

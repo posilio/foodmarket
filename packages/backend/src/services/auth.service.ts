@@ -1,12 +1,14 @@
 // Business logic for customer authentication.
-// Issues and validates JWTs, hashes passwords, and manages customer registration.
+// Issues and validates JWTs, hashes passwords, and manages customer registration/refresh tokens.
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
-import { JWT_SECRET, JWT_EXPIRES_IN } from "../config/env";
+import { JWT_SECRET, JWT_ACCESS_EXPIRES_IN } from "../config/env";
 
 const BCRYPT_ROUNDS = 12;
+const REFRESH_TOKEN_TTL_DAYS = 30;
 
 // Fields safe to return to the client — never include passwordHash.
 const safeCustomerSelect = {
@@ -34,6 +36,21 @@ export interface LoginInput {
   password: string;
 }
 
+function generateAccessToken(customerId: string, email: string): string {
+  return jwt.sign(
+    { sub: customerId, email },
+    JWT_SECRET,
+    { expiresIn: JWT_ACCESS_EXPIRES_IN } as jwt.SignOptions
+  );
+}
+
+async function createRefreshToken(customerId: string): Promise<string> {
+  const token = crypto.randomBytes(40).toString("hex");
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  await prisma.refreshToken.create({ data: { token, customerId, expiresAt } });
+  return token;
+}
+
 export async function registerCustomer(input: RegisterInput) {
   const existing = await prisma.customer.findUnique({
     where: { email: input.email },
@@ -55,7 +72,10 @@ export async function registerCustomer(input: RegisterInput) {
     select: safeCustomerSelect,
   });
 
-  return customer;
+  const token = generateAccessToken(customer.id, customer.email);
+  const refreshToken = await createRefreshToken(customer.id);
+
+  return { token, refreshToken, customer };
 }
 
 export async function loginCustomer(input: LoginInput) {
@@ -82,14 +102,41 @@ export async function loginCustomer(input: LoginInput) {
     throw new AppError("Account disabled", 403);
   }
 
-  const token = jwt.sign(
-    { sub: customer.id, email: customer.email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
-  );
+  const token = generateAccessToken(customer.id, customer.email);
+  const refreshToken = await createRefreshToken(customer.id);
 
   const { passwordHash: _, ...safeCustomer } = customer;
-  return { token, customer: safeCustomer };
+  return { token, refreshToken, customer: safeCustomer };
+}
+
+export async function refreshAccessToken(refreshToken: string) {
+  const stored = await prisma.refreshToken.findUnique({
+    where: { token: refreshToken },
+    include: { customer: { select: safeCustomerSelect } },
+  });
+
+  if (!stored || stored.expiresAt < new Date()) {
+    // Delete expired token if found
+    if (stored) {
+      await prisma.refreshToken.delete({ where: { id: stored.id } }).catch(() => {});
+    }
+    throw new AppError("Invalid or expired refresh token", 401);
+  }
+
+  if (!stored.customer.isActive) {
+    throw new AppError("Account disabled", 403);
+  }
+
+  // Rotate: delete old, create new
+  await prisma.refreshToken.delete({ where: { id: stored.id } });
+  const newToken = generateAccessToken(stored.customer.id, stored.customer.email);
+  const newRefreshToken = await createRefreshToken(stored.customer.id);
+
+  return { token: newToken, refreshToken: newRefreshToken, customer: stored.customer };
+}
+
+export async function revokeRefreshToken(refreshToken: string): Promise<void> {
+  await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
 }
 
 export async function getCustomerById(id: string) {

@@ -1,30 +1,10 @@
-// Admin products page — list all products with per-variant inline stock updates.
+// Admin products page — list all products with per-variant inline stock updates and load-more.
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import { adminApi, type Product } from '../../lib/api';
 import { formatPrice } from '../../lib/format';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
-
-interface Variant {
-  id: string;
-  sku: string;
-  label: string;
-  priceEuroCents: number;
-  stockQuantity: number;
-  isActive: boolean;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  countryOfOrigin: string;
-  isActive: boolean;
-  category: { name: string };
-  variants: Variant[];
-}
 
 function StockCell({
   productId,
@@ -33,7 +13,7 @@ function StockCell({
   onUpdated,
 }: {
   productId: string;
-  variant: Variant;
+  variant: Product['variants'][number];
   token: string;
   onUpdated: (variantId: string, qty: number) => void;
 }) {
@@ -50,26 +30,7 @@ function StockCell({
     setSaving(true);
     setMsg('');
     try {
-      const res = await fetch(
-        `${API_URL}/api/v1/admin/products/${productId}/stock`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            variantId: variant.id,
-            stockQuantity: parsed,
-          }),
-        }
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { message?: string }).message ?? `HTTP ${res.status}`
-        );
-      }
+      await adminApi.products.updateStock(token, productId, variant.id, parsed);
       onUpdated(variant.id, parsed);
       setMsg('✓');
       setTimeout(() => setMsg(''), 2000);
@@ -108,30 +69,36 @@ function StockCell({
 }
 
 export default function AdminProductsPage() {
-  const { token, isLoggedIn } = useAuth();
-  const router = useRouter();
+  const { token } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  const fetchProducts = useCallback(
+    async (cursor?: string, append = false) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      try {
+        const result = await adminApi.products.list(token!, cursor);
+        setProducts((prev) => (append ? [...prev, ...result.data] : result.data));
+        setNextCursor(result.nextCursor);
+        setTotal(result.total);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load');
+      } finally {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
+    },
+    [token]
+  );
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/login');
-      return;
-    }
-    fetch(`${API_URL}/api/v1/admin/products`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ data: Product[] }>;
-      })
-      .then((body) => setProducts(body.data))
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Failed to load')
-      )
-      .finally(() => setLoading(false));
-  }, [isLoggedIn, token, router]);
+    void fetchProducts();
+  }, [fetchProducts]);
 
   const handleStockUpdated = useCallback(
     (productId: string, variantId: string, qty: number) => {
@@ -151,11 +118,13 @@ export default function AdminProductsPage() {
     []
   );
 
-  if (!isLoggedIn) return null;
-
   return (
     <>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Products</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Products{total > 0 && <span className="ml-2 text-gray-400 font-normal text-lg">({total})</span>}
+        </h1>
+      </div>
 
       {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
       {loading && <p className="text-gray-500 text-sm">Loading…</p>}
@@ -178,6 +147,12 @@ export default function AdminProductsPage() {
                   {product.category.name} · {product.countryOfOrigin}
                 </p>
               </div>
+              <Link
+                href={`/products/${product.id}/edit`}
+                className="text-xs font-medium text-blue-600 hover:underline mr-3"
+              >
+                Edit
+              </Link>
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full ${
                   product.isActive
@@ -193,21 +168,11 @@ export default function AdminProductsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">
-                    SKU
-                  </th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">
-                    Label
-                  </th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">
-                    Price
-                  </th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">
-                    Stock
-                  </th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">
-                    Update stock
-                  </th>
+                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">SKU</th>
+                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Label</th>
+                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Price</th>
+                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Stock</th>
+                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Update stock</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -248,6 +213,18 @@ export default function AdminProductsPage() {
           </div>
         ))}
       </div>
+
+      {nextCursor && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => void fetchProducts(nextCursor, true)}
+            disabled={loadingMore}
+            className="px-6 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </button>
+        </div>
+      )}
     </>
   );
 }

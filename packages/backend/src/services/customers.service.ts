@@ -2,6 +2,7 @@
 // Manages customer profiles and provides admin-level customer browsing.
 import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
+import { PaginationParams, PagedResult } from "./admin.service";
 
 // ─── Customer-facing ──────────────────────────────────────────────────────────
 
@@ -24,23 +25,51 @@ export async function getCustomerProfile(customerId: string) {
 
 // ─── Admin-facing ─────────────────────────────────────────────────────────────
 
-// Returns all customers with order count and total spend aggregated.
-export async function getAllCustomers() {
-  const customers = await prisma.customer.findMany({
-    select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      isActive: true,
-      createdAt: true,
-      _count: { select: { orders: true } },
-      orders: { select: { totalEuroCents: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+type CustomerSummary = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  createdAt: Date;
+  orderCount: number;
+  totalSpentEuroCents: number;
+};
 
-  return customers.map((c) => ({
+// Returns all customers with order count and total spend aggregated.
+export async function getAllCustomers(
+  pagination: PaginationParams = {}
+): Promise<PagedResult<CustomerSummary>> {
+  const take = Math.min(Number(pagination.limit) || 20, 100);
+  const cursor = pagination.cursor ? { id: pagination.cursor } : undefined;
+
+  const [raw, total] = await Promise.all([
+    prisma.customer.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        createdAt: true,
+        _count: { select: { orders: true } },
+        orders: { select: { totalEuroCents: true } },
+      },
+      take: take + 1,
+      skip: cursor ? 1 : 0,
+      cursor,
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.customer.count(),
+  ]);
+
+  let nextCursor: string | null = null;
+  if (raw.length > take) {
+    const next = raw.pop()!;
+    nextCursor = next.id;
+  }
+
+  const data: CustomerSummary[] = raw.map((c) => ({
     id: c.id,
     email: c.email,
     firstName: c.firstName,
@@ -50,6 +79,8 @@ export async function getAllCustomers() {
     orderCount: c._count.orders,
     totalSpentEuroCents: c.orders.reduce((sum, o) => sum + o.totalEuroCents, 0),
   }));
+
+  return { data, nextCursor, total };
 }
 
 // Returns a single customer's full profile including order history and addresses.

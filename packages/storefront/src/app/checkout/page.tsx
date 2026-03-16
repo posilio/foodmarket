@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../lib/format';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
+const SHIPPING_CENTS = parseInt(process.env.NEXT_PUBLIC_SHIPPING_CENTS ?? '499', 10);
 
 const inputStyle = {
   border: '1px solid var(--color-border)',
@@ -31,8 +33,20 @@ const labelStyle = {
   marginBottom: '6px',
 };
 
+interface SavedAddress {
+  id: string;
+  street: string;
+  houseNumber: string;
+  houseNumberAddition: string | null;
+  postalCode: string;
+  city: string;
+  country: string;
+  isDefault: boolean;
+}
+
 export default function CheckoutPage() {
   const { isLoggedIn, token } = useRequireAuth('/login?redirect=/checkout');
+  const { customer } = useAuth();
   const { items, totalEuroCents, clearCart } = useCart();
   const router = useRouter();
 
@@ -40,34 +54,67 @@ export default function CheckoutPage() {
   const [houseNumber, setHouseNumber] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [city, setCity] = useState('');
+  const [saveAddress, setSaveAddress] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+
+  // Load saved addresses for logged-in users
+  useEffect(() => {
+    if (!isLoggedIn || !token) return;
+    fetch(`${API_URL}/api/v1/addresses`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() as Promise<{ data: SavedAddress[] }> : Promise.resolve({ data: [] }))
+      .then((body) => setSavedAddresses(body.data))
+      .catch(() => {});
+  }, [isLoggedIn, token]);
 
   useEffect(() => {
     if (isLoggedIn && items.length === 0) router.replace('/cart');
   }, [isLoggedIn, items.length, router]);
+
+  function selectSavedAddress(addr: SavedAddress) {
+    setSelectedAddressId(addr.id);
+    setStreet(addr.street);
+    setHouseNumber(addr.houseNumber);
+    setPostalCode(addr.postalCode);
+    setCity(addr.city);
+  }
+
+  const grandTotal = totalEuroCents + SHIPPING_CENTS;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const addrRes = await fetch(`${API_URL}/api/v1/addresses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ street, houseNumber, postalCode, city }),
-      });
-      if (!addrRes.ok) {
-        const body = await addrRes.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? 'Failed to save address');
+      // Use selected saved address or create a new one
+      let addressId: string;
+      if (selectedAddressId) {
+        addressId = selectedAddressId;
+      } else {
+        const addrRes = await fetch(`${API_URL}/api/v1/addresses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ street, houseNumber, postalCode, city }),
+        });
+        if (!addrRes.ok) {
+          const body = await addrRes.json().catch(() => ({}));
+          throw new Error((body as { message?: string }).message ?? 'Failed to save address');
+        }
+        const addrBody = await addrRes.json() as { data: { id: string } };
+        addressId = addrBody.data.id;
       }
-      const addrBody = await addrRes.json() as { data: { id: string } };
-      const addressId = addrBody.data.id;
 
       const orderRes = await fetch(`${API_URL}/api/v1/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ shippingAddressId: addressId, lines: items.map(i => ({ variantId: i.variantId, quantity: i.quantity })) }),
+        body: JSON.stringify({
+          shippingAddressId: addressId,
+          lines: items.map(i => ({ variantId: i.variantId, quantity: i.quantity })),
+        }),
       });
       if (!orderRes.ok) {
         const body = await orderRes.json().catch(() => ({}));
@@ -109,36 +156,106 @@ export default function CheckoutPage() {
       <div className="flex flex-col lg:flex-row gap-10 items-start">
         {/* Form */}
         <div className="flex-1 min-w-0">
-          <h2
-            className="mb-5"
-            style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '24px', color: 'var(--color-text)' }}
-          >
-            Delivery address
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label style={labelStyle}>Street</label>
-              <input type="text" value={street} onChange={e => setStreet(e.target.value)} required style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>House number</label>
-              <input type="text" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} required style={inputStyle} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label style={labelStyle}>Postal code</label>
-                <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} required style={inputStyle} />
+          {/* Saved addresses */}
+          {savedAddresses.length > 0 && (
+            <div className="mb-8">
+              <h2
+                className="mb-4"
+                style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '22px', color: 'var(--color-text)' }}
+              >
+                Use a saved address
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {savedAddresses.map((addr) => (
+                  <button
+                    key={addr.id}
+                    type="button"
+                    onClick={() => selectSavedAddress(addr)}
+                    className="text-left p-4 rounded-xl border transition-colors"
+                    style={{
+                      border: selectedAddressId === addr.id
+                        ? '2px solid var(--color-primary)'
+                        : '1px solid var(--color-border)',
+                      backgroundColor: selectedAddressId === addr.id
+                        ? 'var(--color-primary-light, #f0faf5)'
+                        : '#fff',
+                    }}
+                  >
+                    <p className="text-sm font-medium" style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif' }}>
+                      {addr.street} {addr.houseNumber}{addr.houseNumberAddition ? ` ${addr.houseNumberAddition}` : ''}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif' }}>
+                      {addr.postalCode} {addr.city}
+                    </p>
+                    {addr.isDefault && (
+                      <span className="text-xs" style={{ color: 'var(--color-primary)', fontFamily: 'Jost, sans-serif' }}>Default</span>
+                    )}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label style={labelStyle}>City</label>
-                <input type="text" value={city} onChange={e => setCity(e.target.value)} required style={inputStyle} />
-              </div>
+              {selectedAddressId && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedAddressId(null); setStreet(''); setHouseNumber(''); setPostalCode(''); setCity(''); }}
+                  className="mt-3 text-sm underline"
+                  style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif' }}
+                >
+                  Enter a different address
+                </button>
+              )}
             </div>
-            {error && <p className="text-sm text-red-500" style={{ fontFamily: 'Jost, sans-serif' }}>{error}</p>}
+          )}
+
+          {/* Manual address form — hidden when a saved address is selected */}
+          {!selectedAddressId && (
+            <>
+              <h2
+                className="mb-5"
+                style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '24px', color: 'var(--color-text)' }}
+              >
+                Delivery address
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label style={labelStyle}>Street</label>
+                  <input type="text" value={street} onChange={e => setStreet(e.target.value)} required={!selectedAddressId} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>House number</label>
+                  <input type="text" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} required={!selectedAddressId} style={inputStyle} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label style={labelStyle}>Postal code</label>
+                    <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} required={!selectedAddressId} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>City</label>
+                    <input type="text" value={city} onChange={e => setCity(e.target.value)} required={!selectedAddressId} style={inputStyle} />
+                  </div>
+                </div>
+                {customer && (
+                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ fontFamily: 'Jost, sans-serif', color: 'var(--color-text-muted)' }}>
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                      style={{ accentColor: 'var(--color-primary)' }}
+                    />
+                    Save this address for future orders
+                  </label>
+                )}
+              </div>
+            </>
+          )}
+
+          {error && <p className="mt-4 text-sm text-red-500" style={{ fontFamily: 'Jost, sans-serif' }}>{error}</p>}
+
+          <form onSubmit={handleSubmit}>
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-4 rounded-xl text-sm transition-opacity disabled:opacity-50 mt-2"
+              disabled={loading || (!selectedAddressId && (!street || !houseNumber || !postalCode || !city))}
+              className="w-full py-4 rounded-xl text-sm transition-opacity disabled:opacity-50 mt-6"
               style={{
                 backgroundColor: 'var(--color-primary)',
                 color: '#fff',
@@ -165,22 +282,33 @@ export default function CheckoutPage() {
           >
             Order summary
           </h2>
-          <ul className="space-y-2 mb-5 list-none p-0" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '16px' }}>
+          <ul className="space-y-2 mb-3 list-none p-0">
             {items.map(item => (
               <li key={item.variantId} className="flex justify-between text-sm">
                 <span style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}>
                   {item.productName} — {item.variantLabel} × {item.quantity}
                 </span>
                 <span style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}>
-                  {formatPrice(item.priceEuroCents * item.quantity)}
+                  {formatPrice(item.unitPriceEuroCents * item.quantity)}
                 </span>
               </li>
             ))}
           </ul>
+
+          {/* Shipping line */}
+          <div className="flex justify-between text-sm mb-4 pb-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <span style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}>
+              Shipping
+            </span>
+            <span style={{ color: 'var(--color-text)', fontFamily: 'Jost, sans-serif', fontWeight: 500 }}>
+              {formatPrice(SHIPPING_CENTS)}
+            </span>
+          </div>
+
           <div className="flex justify-between items-center">
             <span style={{ fontFamily: 'Jost, sans-serif', fontWeight: 500, color: 'var(--color-text)' }}>Total</span>
             <span style={{ fontFamily: 'Jost, sans-serif', fontWeight: 500, fontSize: '20px', color: 'var(--color-accent-warm)' }}>
-              {formatPrice(totalEuroCents)}
+              {formatPrice(grandTotal)}
             </span>
           </div>
         </div>

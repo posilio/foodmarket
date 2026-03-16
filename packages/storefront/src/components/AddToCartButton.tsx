@@ -7,7 +7,8 @@ interface AddToCartButtonProps {
   variantId: string;
   productName: string;
   variantLabel: string;
-  priceEuroCents: number;
+  unitPriceEuroCents: number;
+  maxStock: number;
   inStock: boolean;
 }
 
@@ -15,14 +16,15 @@ export function AddToCartButton({
   variantId,
   productName,
   variantLabel,
-  priceEuroCents,
+  unitPriceEuroCents,
+  maxStock,
   inStock,
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
 
   function handleClick() {
-    addItem({ variantId, productName, variantLabel, priceEuroCents });
+    addItem({ variantId, productName, variantLabel, unitPriceEuroCents, maxStock });
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   }

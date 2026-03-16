@@ -1,52 +1,43 @@
-// Admin customers page — browse all customer accounts with order stats.
+// Admin customers page — browse all customer accounts with order stats and load-more.
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
+import { adminApi, type CustomerSummary } from '../../lib/api';
 import { formatPrice, formatDate } from '../../lib/format';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
-
-interface Customer {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  isActive: boolean;
-  createdAt: string;
-  orderCount: number;
-  totalSpentEuroCents: number;
-}
-
 export default function AdminCustomersPage() {
-  const { token, isLoggedIn } = useAuth();
-  const router = useRouter();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const { token } = useAuth();
+  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  const fetchCustomers = useCallback(
+    async (cursor?: string, append = false) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      try {
+        const result = await adminApi.customers.list(token!, cursor);
+        setCustomers((prev) => (append ? [...prev, ...result.data] : result.data));
+        setNextCursor(result.nextCursor);
+        setTotal(result.total);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load customers');
+      } finally {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
+    },
+    [token]
+  );
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      router.replace('/login');
-      return;
-    }
-    fetch(`${API_URL}/api/v1/admin/customers`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ data: Customer[] }>;
-      })
-      .then((body) => setCustomers(body.data))
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Failed to load customers')
-      )
-      .finally(() => setLoading(false));
-  }, [isLoggedIn, token, router]);
-
-  if (!isLoggedIn) return null;
+    void fetchCustomers();
+  }, [fetchCustomers]);
 
   const filtered = search.trim()
     ? customers.filter((c) => {
@@ -62,8 +53,9 @@ export default function AdminCustomersPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-        <span className="text-sm text-gray-500">{customers.length} total</span>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Customers{total > 0 && <span className="ml-2 text-gray-400 font-normal text-lg">({total})</span>}
+        </h1>
       </div>
 
       {error && (
@@ -148,6 +140,18 @@ export default function AdminCustomersPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {nextCursor && !search && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => void fetchCustomers(nextCursor, true)}
+                disabled={loadingMore}
+                className="px-6 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
             </div>
           )}
         </>

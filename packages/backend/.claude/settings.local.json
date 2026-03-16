@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(npm run:*)",
+      "Bash(node_modules/.bin/prisma.cmd db:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(powershell:*)",
+      "Bash(ping:*)"
+    ]
+  }
+}

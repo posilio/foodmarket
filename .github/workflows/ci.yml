@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  typecheck-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: foodwebshop
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: foodwebshop_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: packages/backend
+        run: node_modules/.bin/prisma generate --schema=src/prisma/schema.prisma
+
+      - name: Run migrations
+        working-directory: packages/backend
+        env:
+          DATABASE_URL: postgresql://foodwebshop:changeme@localhost:5433/foodwebshop_test
+        run: node_modules/.bin/prisma migrate deploy --schema=src/prisma/schema.prisma
+
+      - name: Typecheck backend
+        run: npm run typecheck --workspace=packages/backend
+
+      - name: Typecheck storefront
+        run: npm run typecheck --workspace=packages/storefront
+
+      - name: Typecheck admin
+        run: npm run typecheck --workspace=packages/admin
+
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgresql://foodwebshop:changeme@localhost:5433/foodwebshop_test
+          JWT_SECRET: ci-test-secret
+          NODE_ENV: test
+          ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+        run: npm run test --workspace=packages/backend

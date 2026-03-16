@@ -91,6 +91,7 @@ model ProductVariant {
   productId      String
   product        Product     @relation(fields: [productId], references: [id])
   sku            String      @unique
+  ean            String?     @unique
   label          String
   weightGrams    Int?
   priceEuroCents Int
@@ -123,18 +124,29 @@ model ProductDietaryLabel {
 
 // A registered customer account.
 model Customer {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  phone        String?
-  isActive     Boolean   @default(true)
-  isAdmin      Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  addresses    Address[]
-  orders       Order[]
+  id             String         @id @default(cuid())
+  email          String         @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  phone          String?
+  isActive       Boolean        @default(true)
+  isAdmin        Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  addresses      Address[]
+  orders         Order[]
+  refreshTokens  RefreshToken[]
+}
+
+// Opaque refresh tokens for the silent-refresh auth flow.
+model RefreshToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 }
 
 // A delivery address belonging to a customer (NL address format).
@@ -162,7 +174,9 @@ model Order {
   shippingAddressId String
   shippingAddress   Address      @relation(fields: [shippingAddressId], references: [id])
   totalEuroCents    Int
+  shippingCents     Int          @default(0)
   notes             String?
+  stockReservedUntil DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   lines             OrderLine[]

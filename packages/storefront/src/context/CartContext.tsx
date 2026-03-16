@@ -1,14 +1,45 @@
-// Cart context — in-memory cart state shared across the storefront.
+// Cart context — localStorage-persisted cart state shared across the storefront.
 'use client';
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+
+const STORAGE_KEY = 'foodmarket_cart_v1';
 
 export interface CartItem {
   variantId: string;
   productName: string;
   variantLabel: string;
-  priceEuroCents: number;
-  quantity: number;
   imageUrl?: string | null;
+  unitPriceEuroCents: number;
+  quantity: number;
+  maxStock: number;
+}
+
+function loadFromStorage(): CartItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is CartItem =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as CartItem).variantId === 'string' &&
+        typeof (item as CartItem).unitPriceEuroCents === 'number' &&
+        typeof (item as CartItem).quantity === 'number'
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(items: CartItem[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // Quota exceeded or private browsing — silently ignore
+  }
 }
 
 interface CartContextValue {
@@ -24,7 +55,11 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(loadFromStorage);
+
+  useEffect(() => {
+    saveToStorage(items);
+  }, [items]);
 
   const addItem = useCallback((item: Omit<CartItem, 'quantity'>) => {
     setItems((prev) => {
@@ -32,7 +67,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existing) {
         return prev.map((i) =>
           i.variantId === item.variantId
-            ? { ...i, quantity: i.quantity + 1 }
+            ? { ...i, quantity: Math.min(i.quantity + 1, item.maxStock) }
             : i
         );
       }
@@ -50,7 +85,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } else {
       setItems((prev) =>
         prev.map((i) =>
-          i.variantId === variantId ? { ...i, quantity } : i
+          i.variantId === variantId
+            ? { ...i, quantity: Math.min(quantity, i.maxStock) }
+            : i
         )
       );
     }
@@ -60,7 +97,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalEuroCents = items.reduce(
-    (sum, i) => sum + i.priceEuroCents * i.quantity,
+    (sum, i) => sum + i.unitPriceEuroCents * i.quantity,
     0
   );
 

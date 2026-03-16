@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Providers } from "./Providers";
 import { LogoutButton } from "../components/LogoutButton";
+import { AdminGuard } from "../components/AdminGuard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,12 +42,20 @@ export default function AdminLayout({
               >
                 Customers
               </Link>
+              <Link
+                href="/import"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Import
+              </Link>
               <div className="ml-auto">
                 <LogoutButton />
               </div>
             </nav>
 
-            <main className="max-w-6xl mx-auto px-6 py-10">{children}</main>
+            <main className="max-w-6xl mx-auto px-6 py-10">
+              <AdminGuard>{children}</AdminGuard>
+            </main>
           </div>
         </Providers>
       </body>

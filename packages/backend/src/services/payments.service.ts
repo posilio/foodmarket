@@ -118,32 +118,50 @@ export async function handleWebhook(molliePaymentId: string): Promise<void> {
       newPaymentStatus = PaymentStatus.PENDING;
   }
 
-  // 5. Update Payment record
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: newPaymentStatus,
-      paidAt: molliePayment.status === MolliePaymentStatus.paid ? new Date() : undefined,
-    },
-  });
-
-  // 6. If paid: update order status, write event, send confirmation email
+  // 5. Handle paid payment: decrement stock + update order + payment in one transaction
   if (molliePayment.status === MolliePaymentStatus.paid) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        lines: { include: { variant: { include: { product: true } } } },
+        lines: true,
         customer: { select: { email: true } },
       },
     });
 
-    if (order) {
-      await prisma.$transaction([
-        prisma.order.update({
+    if (order && order.status === OrderStatus.PENDING) {
+      await prisma.$transaction(async (tx) => {
+        // Decrement stock for each line; throw if stock would go negative
+        for (const line of order.lines) {
+          const variant = await tx.productVariant.findUniqueOrThrow({
+            where: { id: line.variantId },
+            select: { stockQuantity: true },
+          });
+          if (variant.stockQuantity < line.quantity) {
+            throw new AppError(
+              `Insufficient stock for variant ${line.variantId}`,
+              400
+            );
+          }
+          await tx.productVariant.update({
+            where: { id: line.variantId },
+            data: { stockQuantity: { decrement: line.quantity } },
+          });
+        }
+
+        // Mark order PAID
+        await tx.order.update({
           where: { id: orderId },
           data: { status: OrderStatus.PAID },
-        }),
-        prisma.orderEvent.create({
+        });
+
+        // Mark payment PAID
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { status: PaymentStatus.PAID, paidAt: new Date() },
+        });
+
+        // Audit event
+        await tx.orderEvent.create({
           data: {
             orderId,
             eventType: "PAYMENT_RECEIVED",
@@ -151,13 +169,28 @@ export async function handleWebhook(molliePaymentId: string): Promise<void> {
             toStatus: OrderStatus.PAID,
             note: `Payment confirmed via Mollie: ${molliePaymentId}`,
           },
-        }),
-      ]);
+        });
+      });
 
+      // Send confirmation email outside the transaction (failure doesn't roll back)
       if (order.customer) {
-        await sendOrderConfirmation(order, order.customer.email);
+        const orderWithLines = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            lines: { include: { variant: { include: { product: true } } } },
+          },
+        });
+        if (orderWithLines) {
+          await sendOrderConfirmation(orderWithLines, order.customer.email);
+        }
       }
     }
+  } else {
+    // Non-paid: just update the payment status
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: newPaymentStatus },
+    });
   }
 
   logger.info(

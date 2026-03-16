@@ -1,10 +1,19 @@
 // Express router for address endpoints — requires authentication.
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.middleware";
-import { createAddress } from "../services/addresses.service";
+import { createAddress, getAddressesByCustomer } from "../services/addresses.service";
 import { AppError } from "../lib/errors";
 
 const router = Router();
+
+router.get("/addresses", requireAuth, async (req, res, next) => {
+  try {
+    const addresses = await getAddressesByCustomer(req.customerId!);
+    res.json({ data: addresses });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.post("/addresses", requireAuth, async (req, res, next) => {
   try {

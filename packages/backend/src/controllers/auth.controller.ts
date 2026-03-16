@@ -5,6 +5,8 @@ import {
   registerCustomer,
   loginCustomer,
   getCustomerById,
+  refreshAccessToken,
+  revokeRefreshToken,
 } from "../services/auth.service";
 
 export async function register(req: Request, res: Response, next: NextFunction) {
@@ -26,7 +28,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
       return;
     }
 
-    const customer = await registerCustomer({
+    const result = await registerCustomer({
       email: email.trim().toLowerCase(),
       password,
       firstName: firstName.trim(),
@@ -34,7 +36,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
       phone: typeof phone === "string" ? phone.trim() : undefined,
     });
 
-    res.status(201).json({ data: customer });
+    res.status(201).json({ data: result });
   } catch (err) {
     next(err);
   }
@@ -68,6 +70,33 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       return;
     }
     res.json({ data: customer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function refresh(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { refreshToken } = req.body as { refreshToken?: string };
+    if (!refreshToken || typeof refreshToken !== "string") {
+      res.status(400).json({ error: "refreshToken is required" });
+      return;
+    }
+
+    const result = await refreshAccessToken(refreshToken);
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function logout(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { refreshToken } = req.body as { refreshToken?: string };
+    if (refreshToken && typeof refreshToken === "string") {
+      await revokeRefreshToken(refreshToken);
+    }
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
