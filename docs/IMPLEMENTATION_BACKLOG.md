@@ -739,14 +739,20 @@ The admin dashboard shows a low-stock banner (top-5 variants below threshold) bu
 | **ID** | FOOD-027 |
 | **Title** | VAT handling — NL 9% on food, 21% on non-food |
 | **Priority** | P2 |
-| **Status** | TODO |
+| **Status** | DEFERRED |
 | **Area** | Backend + Storefront |
 | **Dependencies** | None |
 
-**Summary:**
-Dutch law (BTW) requires 9% VAT on food items and 21% on non-food. The current system stores prices in euro cents with no VAT breakdown. Order confirmation emails and receipts do not show VAT. This may be a legal requirement for Dutch B2C sales.
+> ⚠️ DO NOT IMPLEMENT until KOR threshold is exceeded (€20,000 annual turnover)
 
-**What to do:**
+**Summary:**
+FoodMarket sells food ingredients — all products are subject to 9% BTW (reduced rate for food). Dutch B2C law requires VAT-inclusive pricing, meaning prices already include tax.
+
+Under the KOR scheme (kleine ondernemersregeling), businesses with annual turnover under €20,000 are fully exempt from charging VAT and filing VAT returns. No BTW number is needed during this phase.
+
+Once turnover exceeds €20,000, KOR must be deactivated and this ticket must be implemented: charge 9% BTW, show VAT breakdown on checkout and order confirmation emails, add BTW number to footer and emails, and file quarterly BTW returns with Belastingdienst.
+
+**What to do (when KOR threshold is exceeded):**
 - Decide on pricing model: VAT-inclusive (prices already include tax — standard for B2C in NL) vs VAT-exclusive (add on top).
 - If VAT-inclusive: add a `vatRatePercent` field to `Category` or `Product` (9 or 21).
 - Calculate and display the VAT breakdown (e.g. "incl. 9% BTW: €0.45") on checkout, order confirmation, and admin order detail.
@@ -865,7 +871,7 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | FOOD-024 | Password reset flow | P2 | DONE | Backend + Storefront |
 | FOOD-025 | Order cancellation + Mollie refund | P2 | TODO | Backend + Admin |
 | FOOD-026 | Low stock email alert (daily digest) | P2 | DONE | Backend |
-| FOOD-027 | VAT handling (NL 9%/21%) | P2 | TODO | Backend + Storefront |
+| FOOD-027 | VAT handling (NL 9%/21%) | P2 | DEFERRED | Backend + Storefront |
 | FOOD-028 | Storefront search | P3 | TODO | Backend + Storefront |
 | FOOD-029 | Product reviews | P3 | TODO | Backend + Storefront |
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |

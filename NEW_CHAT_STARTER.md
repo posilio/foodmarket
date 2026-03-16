@@ -361,6 +361,23 @@ const { items, addItem, removeItem, updateQuantity, totalEuroCents } = useCart()
 
 ---
 
+## Legal & Tax Notes
+
+### VAT / BTW
+- All products are food ingredients → 9% BTW (reduced rate)
+- Dutch B2C law requires VAT-inclusive pricing (prices include tax)
+- **KOR scheme** (kleine ondernemersregeling): businesses under €20,000 annual turnover are exempt from charging VAT and filing BTW returns. Strongly recommended for launch.
+- When KOR threshold is exceeded → implement FOOD-027:
+  - Add vatRatePercent to Product/Category
+  - Show "incl. 9% BTW: €X.XX" breakdown on checkout
+  - Add VAT line to order confirmation emails
+  - Add BTW number to storefront footer
+  - File quarterly BTW returns via Belastingdienst portal
+- VAT records must be kept 7 years (orders already retained)
+- Register for KOR at kvk.nl during KVK registration
+
+---
+
 ## Go-Live Checklist
 
 > Run through this before flipping DNS to the production domain.
