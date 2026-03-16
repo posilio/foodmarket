@@ -5,6 +5,7 @@ import { Providers } from '../context/Providers';
 import { NavCartCount } from '../components/NavCartCount';
 import { NavAuthLink } from '../components/NavAuthLink';
 import { NavScrollShadow } from '../components/NavScrollShadow';
+import { CookieBanner } from '../components/CookieBanner';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -136,16 +137,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
               </div>
 
-              <div className="border-t pt-6" style={{ borderColor: 'rgba(247,245,240,0.08)' }}>
+              <div className="border-t pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderColor: 'rgba(247,245,240,0.08)' }}>
                 <p
-                  className="text-xs text-center"
+                  className="text-xs"
                   style={{ color: 'rgba(247,245,240,0.35)', fontFamily: 'Jost, sans-serif' }}
                 >
                   © 2025 FoodMarket — specialty ingredients from around the world
                 </p>
+                <Link
+                  href="/privacy"
+                  className="text-xs hover:opacity-100 transition-opacity"
+                  style={{ color: 'rgba(247,245,240,0.35)', fontFamily: 'Jost, sans-serif', textDecoration: 'none' }}
+                >
+                  Privacy policy
+                </Link>
               </div>
             </div>
           </footer>
+          <CookieBanner />
         </Providers>
       </body>
     </html>
