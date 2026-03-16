@@ -174,7 +174,7 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 ### Backend
 - Auth: register, login, JWT verify, refresh token (15m access / 30d refresh), logout, `requireAuth` / `requireAdmin` middleware
-- Rate limiting: strict on `/auth/login` + `/auth/register`, global on all routes
+- Rate limiting: global (200 req/min), strict auth (10/15min on login+register), parse-pdf (100/hr to cap Anthropic costs)
 - Bootstrap: `POST /api/v1/bootstrap/admin` (first-run only, requires `ADMIN_BOOTSTRAP_SECRET`)
 - Products: list (cursor pagination), get by slug, list categories
 - Orders: create (transactional — validates stock, calculates total + shipping server-side), list, get by ID
@@ -188,7 +188,8 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
   - Customers: list (paginated, searchable), detail with orders + addresses
   - Low stock alerts: `GET /admin/products/low-stock?threshold=5`
   - Image upload: `POST /admin/upload/image` → saved to `uploads/`, served statically
-  - Stock import: `POST /admin/import/parse-pdf` (Anthropic PDF parsing), `POST /admin/import/preview` (EAN matching), `POST /admin/import/confirm` (atomic stock increment)
+  - Stock import: `POST /admin/import/parse-pdf` (Anthropic PDF parsing, 30s timeout, 100/hr rate limit), `POST /admin/import/preview` (EAN matching), `POST /admin/import/confirm` (atomic stock increment)
+- Stock expiry job: `jobs/expireOrders.ts` — runs every 5 min, cancels PENDING orders past 30-min reservation, restores stock, writes `OrderEvent`
 - CORS: origin whitelist via `ALLOWED_ORIGINS` env var
 - Global error handler with `AppError` class, Pino structured logging
 - Tests: vitest + supertest (`src/__tests__/auth.test.ts`, `orders.test.ts`)
@@ -225,18 +226,40 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 ## What Still Needs to Be Done
 
-### FOOD-003 — Stock Decrement Timing (P1)
+See `docs/IMPLEMENTATION_BACKLOG.md` for full structured tickets. Summary below.
 
-Stock is decremented when an order is **created** (before payment). If the customer abandons the Mollie payment, stock remains locked forever.
+### P1 — Blockers Before Go-Live
 
-**Fix:** Add `stockReservedUntil` timestamp to `Order`. Run a background job every 5 minutes that cancels PENDING orders past their reservation window and restores stock. The Mollie webhook (PAID event) beats the expiry for legitimate orders.
+**Mollie live key swap** — switch `MOLLIE_API_KEY` from `test_...` to `live_...` in Railway env vars; also update `MOLLIE_REDIRECT_BASE` and `WEBHOOK_BASE_URL` to the production domain. See `docs/DEPLOYMENT.md`.
 
-**Files:**
-- `packages/backend/src/prisma/schema.prisma` (add `stockReservedUntil` to `Order`)
-- `packages/backend/src/services/orders.service.ts`
-- New: `packages/backend/src/jobs/expireOrders.ts`
-- `packages/backend/src/index.ts` (start the job)
-- New migration required
+**Production domain + SSL (Railway)** — deploy all three services, set `NEXT_PUBLIC_API_URL` to the Railway backend URL, confirm SSL. See `docs/DEPLOYMENT.md`.
+
+**Shipping notification email** — `sendShippingNotification()` exists in `lib/email.ts`; verify it is actually called when an admin marks an order `SHIPPED` in `PATCH /admin/orders/:id/status`. End-to-end test required.
+
+**Fix 2 failing tests:**
+- `auth.test.ts` — register test accesses `res.body.data.email` directly; API now returns `{ customer, token, refreshToken }`, so fix to `res.body.data.customer.email`.
+- Both test files — `afterAll` FK violation: delete `refreshTokens` before `customer` in cleanup.
+- Files: `packages/backend/src/__tests__/auth.test.ts`, `orders.test.ts`
+
+**GDPR basics (legally required in NL)** — add a `/privacy` static page to the storefront and a cookie consent banner. Dutch law (AVG) requires this before collecting any personal data.
+
+### P2 — Important, Not Blocking
+
+**Password reset** — users cannot recover a forgotten password. Needs `POST /auth/forgot-password` + `POST /auth/reset-password`, Resend email with a signed token, and two storefront pages (`/forgot-password`, `/reset-password`).
+
+**Order cancellation + Mollie refund** — cancelling a PAID order via the admin does not trigger a Mollie refund or restore stock. Needs webhook-aware cancellation logic in `payments.service.ts` and `admin.service.ts`.
+
+**Low stock email alert** — dashboard shows the banner but no email fires. Add a daily digest job (`jobs/lowStockAlert.ts`) that emails a summary via Resend when variants drop below threshold.
+
+**VAT handling (NL law)** — NL requires 9% BTW on food, 21% on non-food. Verify prices are VAT-inclusive (B2C standard) and add a VAT line to order confirmation emails. May require schema change.
+
+### P3 — Nice to Have
+
+**Storefront search** — `GET /products?q=...` with ILIKE filter on name/description; search input with debounce on products listing page.
+
+**Product reviews** — `Review` model, `POST /products/:slug/reviews`, star rating display on product detail.
+
+**Discount codes** — `DiscountCode` model, code entry at checkout, flat or percentage deduction from `totalEuroCents`.
 
 ---
 
@@ -328,12 +351,60 @@ const { items, addItem, removeItem, updateQuantity, totalEuroCents } = useCart()
 
 ## Known Issues / Gotchas
 
-1. **FOOD-003 open** — stock decremented at order creation, not payment. Abandoned checkouts lock stock.
+1. **2 failing tests** — `auth.test.ts` register assertion uses wrong response shape; both `afterAll` cleanups fail with FK violation on `RefreshToken`. See "What Still Needs to Be Done → P1".
 2. **Prisma pinned to v6** — do not upgrade to v7 (removed `url` from datasource block).
 3. **Next.js config must be `.mjs`** — `next.config.ts` not supported in Next.js 14.
 4. **Stale tsx processes on Windows** — always kill old Node/tsx processes before starting dev servers.
 5. **`prisma migrate dev` requires a TTY** — in bash subprocesses (CI, scripts), use `migrate deploy` + manual SQL instead.
 6. **`ANTHROPIC_API_KEY` required for PDF import** — `parse-pdf` returns 502 if the key is not set.
+7. **No password reset** — users cannot recover forgotten passwords (P2 backlog item).
+
+---
+
+## Go-Live Checklist
+
+> Run through this before flipping DNS to the production domain.
+> Full deployment instructions: `docs/DEPLOYMENT.md`.
+
+### Infrastructure
+- [ ] Railway projects created for backend, storefront, admin
+- [ ] PostgreSQL provisioned (Railway, Supabase, or Neon)
+- [ ] Custom domains pointed at Railway services (SSL automatic)
+
+### Backend Environment Variables (Railway)
+- [ ] `JWT_SECRET` — strong random secret (never the dev value)
+- [ ] `DATABASE_URL` — production DB connection string
+- [ ] `MOLLIE_API_KEY` — **live key** (`live_...`), not test key
+- [ ] `MOLLIE_REDIRECT_BASE` — production storefront URL
+- [ ] `WEBHOOK_BASE_URL` — production backend URL
+- [ ] `ALLOWED_ORIGINS` — production storefront + admin URLs
+- [ ] `RESEND_API_KEY` — verified sending domain configured in Resend
+- [ ] `RESEND_FROM` — verified sender address
+- [ ] `ANTHROPIC_API_KEY` — set if using PDF stock import
+- [ ] `ADMIN_BOOTSTRAP_SECRET` — set for first run, **clear after first admin created**
+- [ ] `SHIPPING_FLAT_RATE_CENTS` — confirm live shipping rate
+- [ ] `NODE_ENV=production`
+
+### Storefront + Admin Environment Variables
+- [ ] `NEXT_PUBLIC_API_URL` — production backend URL (both packages)
+- [ ] `NEXT_PUBLIC_SHIPPING_CENTS` — matches `SHIPPING_FLAT_RATE_CENTS`
+
+### Pre-Launch Functional Checks
+- [ ] `npm run test` — all tests pass (fix 2 failing first — see P1)
+- [ ] `prisma migrate deploy` against production DB
+- [ ] Bootstrap first admin via `POST /api/v1/bootstrap/admin`
+- [ ] Clear `ADMIN_BOOTSTRAP_SECRET` after first admin created
+- [ ] Place a test order end-to-end: add to cart → checkout → Mollie → PAID webhook fires
+- [ ] Verify order confirmation email received
+- [ ] Mark order SHIPPED in admin → verify shipping notification email fires
+- [ ] Verify low-stock banner appears on admin dashboard
+
+### Legal (NL / GDPR)
+- [ ] Privacy policy page live at `/privacy` (AVG required before launch)
+- [ ] Cookie consent banner shown on storefront first visit
+- [ ] KVK registration number in storefront footer (required for Dutch webshops)
+- [ ] BTW (VAT) number in footer / on order confirmation emails
+- [ ] 14-day return policy displayed
 
 ---
 

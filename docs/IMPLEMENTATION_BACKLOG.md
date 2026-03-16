@@ -82,7 +82,7 @@ The cart (`CartContext`) is held in React state only. It is lost on every page r
 | **ID** | FOOD-003 |
 | **Title** | Stock decrement timing (release unpaid orders after N minutes) |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -530,13 +530,318 @@ The backend uses `cors()` with default settings, which allows all origins. This 
 
 ---
 
+## Go-Live Tickets (P1)
+
+---
+
+### FOOD-020: Mollie Live Key Swap
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-020 |
+| **Title** | Mollie live key swap (test → production) |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Backend + DevOps |
+| **Dependencies** | FOOD-021 |
+
+**Summary:**
+`MOLLIE_API_KEY` currently holds a test key (`test_...`). All payments use the Mollie sandbox and no real money moves. Before go-live, this must be swapped for the live key.
+
+**What to do:**
+- In Railway (or your host), set `MOLLIE_API_KEY=live_...` (from the Mollie dashboard).
+- Update `MOLLIE_REDIRECT_BASE` to the production storefront URL.
+- Update `WEBHOOK_BASE_URL` to the production backend URL (Mollie needs to reach this for webhooks).
+- Verify in Mollie dashboard that the live webhook endpoint is registered.
+- **Never commit live keys to git.**
+
+**Files to change:**
+- Railway / production environment variables only — no code changes needed.
+
+---
+
+### FOOD-021: Production Domain + SSL (Railway)
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-021 |
+| **Title** | Production domain + SSL on Railway |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | DevOps |
+| **Dependencies** | None |
+
+**Summary:**
+The app runs locally only. For go-live, all three services must be deployed to a hosting platform with HTTPS.
+
+**What to do:**
+- Create three Railway services: `foodmarket-backend`, `foodmarket-storefront`, `foodmarket-admin`.
+- Provision a PostgreSQL database (Railway Postgres, Supabase, or Neon).
+- Run `prisma migrate deploy` against the production database on first deploy.
+- Set all environment variables per `docs/DEPLOYMENT.md`.
+- Point custom domains at Railway services; SSL terminates automatically at Railway's edge.
+- Add a `Procfile` or set Railway start commands if not auto-detected from `package.json`.
+
+See `docs/DEPLOYMENT.md` for the full variable reference.
+
+---
+
+### FOOD-022: Fix 2 Failing Tests
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-022 |
+| **Title** | Fix 2 failing backend tests |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Backend |
+| **Dependencies** | None |
+
+**Summary:**
+Two tests currently fail. CI will block on every push until these are fixed.
+
+**What to do:**
+
+*Fix 1 — `auth.test.ts` response shape:*
+- The register endpoint now returns `{ data: { customer, token, refreshToken } }`.
+- The test asserts `expect(res.body.data).toMatchObject({ email, firstName, lastName })` — these fields are now nested under `data.customer`.
+- Fix: change the assertion to `res.body.data.customer`.
+
+*Fix 2 — `afterAll` FK constraint (both test files):*
+- `prisma.customer.deleteMany()` fails because the customer has linked `RefreshToken` rows.
+- Fix: add `await prisma.refreshToken.deleteMany({ where: { customer: { email: TEST_EMAIL } } })` before the customer delete in both `afterAll` blocks.
+
+**Files to change:**
+- `packages/backend/src/__tests__/auth.test.ts`
+- `packages/backend/src/__tests__/orders.test.ts`
+
+---
+
+### FOOD-023: GDPR Basics (Privacy Policy + Cookie Notice)
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-023 |
+| **Title** | GDPR basics — privacy policy page + cookie notice |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Storefront |
+| **Dependencies** | None |
+
+**Summary:**
+Dutch law (AVG/GDPR) requires a privacy policy and cookie notice before a site collects personal data (email, name, address). Launching without these is a legal risk.
+
+**What to do:**
+- Add a `/privacy` static page to the storefront with a privacy policy (covering what data is collected, why, retention period, and customer rights).
+- Add a cookie consent banner that appears on first visit. Since the site only sets session/auth cookies (no tracking), the banner can be minimal — just an acknowledgement.
+- Add a link to `/privacy` in the storefront footer.
+
+**Files to change:**
+- New: `packages/storefront/src/app/privacy/page.tsx`
+- New: `packages/storefront/src/components/CookieBanner.tsx`
+- `packages/storefront/src/app/layout.tsx` (mount banner, add footer link)
+
+---
+
+## Go-Live Tickets (P2)
+
+---
+
+### FOOD-024: Password Reset Flow
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-024 |
+| **Title** | Password reset flow (forgotten password recovery) |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | None |
+
+**Summary:**
+Users have no way to recover a forgotten password. They are permanently locked out if they forget it, requiring manual database intervention.
+
+**What to do:**
+- `POST /auth/forgot-password` — generates a signed, short-lived token (15 min), stores a hash in a new `PasswordResetToken` table, emails a link via Resend to the customer.
+- `POST /auth/reset-password` — validates the token, updates `passwordHash`, deletes the token, revokes all existing refresh tokens for the account.
+- Storefront: `/forgot-password` page (email input), `/reset-password?token=...` page (new password form).
+
+**Files to change:**
+- New migration: `PasswordResetToken` model
+- `packages/backend/src/services/auth.service.ts`
+- `packages/backend/src/routes/auth.ts`
+- `packages/backend/src/lib/email.ts` (add reset email template)
+- New: `packages/storefront/src/app/forgot-password/page.tsx`
+- New: `packages/storefront/src/app/reset-password/page.tsx`
+
+---
+
+### FOOD-025: Order Cancellation + Mollie Refund
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-025 |
+| **Title** | Order cancellation with Mollie refund and stock restore |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend + Admin |
+| **Dependencies** | None |
+
+**Summary:**
+Admins can set order status to `CANCELLED` via the status dropdown, but this does not trigger a Mollie refund for paid orders, and does not restore stock.
+
+**What to do:**
+- In the `updateOrderStatus` service, when transitioning to `CANCELLED` from `PAID` or `PROCESSING`:
+  - Call `mollieClient.payments.cancel(providerReference)` or create a refund via the Mollie API.
+  - Restore stock for all `OrderLine` variants (increment `stockQuantity`).
+  - Create an `OrderEvent` recording the cancellation and refund reference.
+- Handle the case where payment was never made (PENDING → CANCELLED): just restore stock, no Mollie call.
+
+**Files to change:**
+- `packages/backend/src/services/admin.service.ts`
+- `packages/backend/src/services/payments.service.ts`
+
+---
+
+### FOOD-026: Low Stock Email Alert (Daily Digest)
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-026 |
+| **Title** | Low stock email alert — daily digest to admin |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend |
+| **Dependencies** | None |
+
+**Summary:**
+The admin dashboard shows a low-stock banner (top-5 variants below threshold) but nothing is sent proactively. Admins who don't check the dashboard daily will miss low-stock warnings.
+
+**What to do:**
+- Create `packages/backend/src/jobs/lowStockAlert.ts`.
+- The job runs once per day (via `setInterval` with 24h ms, or a proper scheduler).
+- Fetches all variants where `stockQuantity < threshold` (configurable, default 5).
+- If any exist, sends a summary email via Resend to a configured `ADMIN_EMAIL` env var.
+- Wire into `index.ts` alongside `startExpireOrdersJob()`.
+
+**Files to change:**
+- New: `packages/backend/src/jobs/lowStockAlert.ts`
+- `packages/backend/src/index.ts`
+- `packages/backend/src/lib/email.ts` (add low-stock email template)
+- `packages/backend/src/config/env.ts` (add `ADMIN_EMAIL`)
+
+---
+
+### FOOD-027: VAT Handling (NL Law)
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-027 |
+| **Title** | VAT handling — NL 9% on food, 21% on non-food |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | None |
+
+**Summary:**
+Dutch law (BTW) requires 9% VAT on food items and 21% on non-food. The current system stores prices in euro cents with no VAT breakdown. Order confirmation emails and receipts do not show VAT. This may be a legal requirement for Dutch B2C sales.
+
+**What to do:**
+- Decide on pricing model: VAT-inclusive (prices already include tax — standard for B2C in NL) vs VAT-exclusive (add on top).
+- If VAT-inclusive: add a `vatRatePercent` field to `Category` or `Product` (9 or 21).
+- Calculate and display the VAT breakdown (e.g. "incl. 9% BTW: €0.45") on checkout, order confirmation, and admin order detail.
+- Add VAT line to order confirmation email template.
+- Consider storing `vatEuroCents` on `OrderLine` for audit purposes.
+
+**Files to change:**
+- Possibly new migration (if storing VAT rate/amount on model)
+- `packages/backend/src/services/orders.service.ts`
+- `packages/backend/src/lib/email.ts`
+- `packages/storefront/src/app/checkout/page.tsx`
+- `packages/admin/src/app/orders/[id]/page.tsx`
+
+---
+
+## Nice to Have (P3)
+
+---
+
+### FOOD-028: Storefront Search
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-028 |
+| **Title** | Storefront product search |
+| **Priority** | P3 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | None |
+
+**Summary:**
+There is no search functionality. Users must browse by category to find products.
+
+**What to do:**
+- Add `?q=` query param to `GET /products` backend endpoint; filter by `name` ILIKE and `description` ILIKE.
+- Add a search input to the storefront products listing page with debounce (300ms).
+- Update the URL query string on search so results are shareable/bookmarkable.
+
+**Files to change:**
+- `packages/backend/src/services/products.service.ts`
+- `packages/storefront/src/app/products/page.tsx`
+
+---
+
+### FOOD-029: Product Reviews
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-029 |
+| **Title** | Product reviews (customer ratings) |
+| **Priority** | P3 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | None |
+
+**Summary:**
+Products have no review or rating system.
+
+**What to do:**
+- New `Review` model: `productId`, `customerId`, `rating` (1–5), `body` (text), `createdAt`.
+- `POST /products/:slug/reviews` — authenticated customers only, one review per product.
+- `GET /products/:slug` — include reviews (or a summary) in the response.
+- Display star rating and review list on the storefront product detail page.
+
+---
+
+### FOOD-030: Discount Codes
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-030 |
+| **Title** | Discount codes at checkout |
+| **Priority** | P3 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront + Admin |
+| **Dependencies** | None |
+
+**Summary:**
+There is no promotional discount mechanism. The shop cannot run sales or targeted promotions.
+
+**What to do:**
+- New `DiscountCode` model: `code` (unique), `type` (FLAT | PERCENTAGE), `amountCents` or `percent`, `maxUses`, `usedCount`, `expiresAt`, `isActive`.
+- Admin: create/deactivate codes via new admin endpoints.
+- Checkout: code input field; `POST /orders/validate-discount` validates and returns the discount amount.
+- Apply discount to `totalEuroCents` on order create; store `discountCodeId` + `discountEuroCents` on `Order`.
+
+---
+
 ## Backlog Summary
 
 | ID | Title | Priority | Status | Area |
 |---|---|---|---|---|
 | FOOD-001 | Cart persistence (localStorage) | P1 | DONE | Storefront |
 | FOOD-002 | Auth persistence (localStorage) | P1 | DONE | Storefront |
-| FOOD-003 | Stock decrement timing | P1 | TODO | Backend |
+| FOOD-003 | Stock decrement timing | P1 | DONE | Backend |
 | FOOD-004 | Implement admin api.ts | P1 | DONE | Admin |
 | FOOD-005 | Admin layout auth guard | P1 | DONE | Admin |
 | FOOD-006 | Admin bootstrap route | P1 | DONE | Backend |
@@ -553,3 +858,14 @@ The backend uses `cors()` with default settings, which allows all origins. This 
 | FOOD-017 | Low stock alerts in admin | P3 | DONE | Backend + Admin |
 | FOOD-018 | CORS hardening for production | P3 | DONE | Backend |
 | FOOD-019 | Stock import (EAN + PDF/CSV) | — | DONE | Backend + Admin |
+| FOOD-020 | Mollie live key swap | P1 | TODO | Backend + DevOps |
+| FOOD-021 | Production domain + SSL (Railway) | P1 | TODO | DevOps |
+| FOOD-022 | Fix 2 failing tests | P1 | TODO | Backend |
+| FOOD-023 | GDPR basics (privacy policy + cookie notice) | P1 | TODO | Storefront |
+| FOOD-024 | Password reset flow | P2 | TODO | Backend + Storefront |
+| FOOD-025 | Order cancellation + Mollie refund | P2 | TODO | Backend + Admin |
+| FOOD-026 | Low stock email alert (daily digest) | P2 | TODO | Backend |
+| FOOD-027 | VAT handling (NL 9%/21%) | P2 | TODO | Backend + Storefront |
+| FOOD-028 | Storefront search | P3 | TODO | Backend + Storefront |
+| FOOD-029 | Product reviews | P3 | TODO | Backend + Storefront |
+| FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |
