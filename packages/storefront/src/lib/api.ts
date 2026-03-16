@@ -1,6 +1,6 @@
 // Typed fetch wrapper for calling the backend API from the storefront.
 // All data fetching goes through these functions — never call the backend directly from pages.
-import type { ApiResponse, Category, Product, Review, ReviewsResponse } from "../types";
+import type { ApiResponse, Category, CategoryTree, Product, Review, ReviewsResponse } from "../types";
 
 function getBaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -25,10 +25,17 @@ async function apiFetch<T>(
 
 // Products list now returns paginated shape — pass limit=200 so all active products are returned
 // for the server-rendered storefront listing page (storefront has no client-side load-more).
-export async function getProducts(categorySlug?: string, q?: string): Promise<Product[]> {
+export async function getProducts(options?: {
+  region?: string;
+  country?: string;
+  type?: string;
+  q?: string;
+}): Promise<Product[]> {
   const params = new URLSearchParams({ limit: "200" });
-  if (categorySlug) params.set("category", categorySlug);
-  if (q) params.set("q", q);
+  if (options?.region) params.set("region", options.region);
+  if (options?.country) params.set("country", options.country);
+  if (options?.type) params.set("type", options.type);
+  if (options?.q) params.set("q", options.q);
   const data = await apiFetch<ApiResponse<Product[]> & { nextCursor: string | null; total: number }>(
     `/api/v1/products?${params.toString()}`,
     { cache: "no-store" }
@@ -54,6 +61,10 @@ export async function getCategories(): Promise<Category[]> {
     cache: "no-store",
   });
   return data.data;
+}
+
+export async function getCategoryTree(): Promise<CategoryTree> {
+  return apiFetch<CategoryTree>("/api/v1/categories/tree", { cache: "no-store" });
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

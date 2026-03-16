@@ -5,6 +5,7 @@ import {
   getAllProducts,
   getProductBySlug,
   getAllCategories,
+  getCategoryTree,
 } from "../services/products.service";
 
 export async function listProducts(
@@ -13,12 +14,19 @@ export async function listProducts(
   next: NextFunction
 ) {
   try {
-    const categorySlug =
-      typeof req.query.category === "string" ? req.query.category : undefined;
+    const region = typeof req.query.region === "string" ? req.query.region : undefined;
+    const country = typeof req.query.country === "string" ? req.query.country : undefined;
+    const type = typeof req.query.type === "string" ? req.query.type : undefined;
     const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
     const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
     const q = typeof req.query.q === "string" ? req.query.q : undefined;
-    const result = await getAllProducts({ categorySlug, q, pagination: { limit, cursor } });
+    const result = await getAllProducts({
+      originRegionSlug: region,
+      originCountrySlug: country,
+      typeCategorySlug: type,
+      q,
+      pagination: { limit, cursor },
+    });
     res.json(result);
   } catch (err) {
     next(err);
@@ -51,6 +59,19 @@ export async function listCategories(
   try {
     const categories = await getAllCategories();
     res.json({ data: categories });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getCategoryTreeHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const tree = await getCategoryTree();
+    res.json(tree);
   } catch (err) {
     next(err);
   }

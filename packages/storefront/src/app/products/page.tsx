@@ -1,26 +1,35 @@
-// Products listing page — category filter pills + debounced search.
+// Products listing page — dual filter rows (origin region/country + product type) + search.
 import { Suspense } from 'react';
-import { getProducts, getCategories } from '../../lib/api';
+import { getProducts, getCategoryTree } from '../../lib/api';
 import { ProductCard } from '../../components/ProductCard';
-import { CategoryFilterPills } from '../../components/CategoryFilterPills';
+import { DualFilterPills } from '../../components/DualFilterPills';
 import { SearchInput } from '../../components/SearchInput';
 
 interface ProductsPageProps {
-  searchParams: Promise<{ category?: string; q?: string }>;
+  searchParams: Promise<{ region?: string; country?: string; type?: string; q?: string }>;
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  const { category, q } = await searchParams;
-  const [products, categories] = await Promise.all([
-    getProducts(category, q),
-    getCategories(),
+  const { region, country, type, q } = await searchParams;
+  const [products, { originRegions, productTypes }] = await Promise.all([
+    getProducts({ region, country, type, q }),
+    getCategoryTree(),
   ]);
 
-  const heading = q
-    ? `Results for "${q}"`
-    : category
-    ? (categories.find(c => c.slug === category)?.name ?? 'Products')
-    : 'All Products';
+  // Resolve display heading
+  let heading = 'All Products';
+  if (q) {
+    heading = `Results for "${q}"`;
+  } else if (country) {
+    const countryObj = originRegions.flatMap(r => r.children).find(c => c.slug === country);
+    if (countryObj) heading = countryObj.name;
+  } else if (region) {
+    const regionObj = originRegions.find(r => r.slug === region);
+    if (regionObj) heading = regionObj.name;
+  } else if (type) {
+    const typeObj = productTypes.find(t => t.slug === type);
+    if (typeObj) heading = typeObj.name;
+  }
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-12">
@@ -50,13 +59,23 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         </p>
       </div>
 
-      {/* Search + filter row */}
-      <div className="mb-8 flex flex-col gap-4">
+      {/* Search */}
+      <div className="mb-6">
         <Suspense>
           <SearchInput initialValue={q ?? ''} />
         </Suspense>
-        <CategoryFilterPills categories={categories} activeSlug={category} />
       </div>
+
+      {/* Dual filter rows */}
+      <Suspense>
+        <DualFilterPills
+          originRegions={originRegions}
+          productTypes={productTypes}
+          activeRegion={region}
+          activeCountry={country}
+          activeType={type}
+        />
+      </Suspense>
 
       {/* Grid */}
       {products.length === 0 ? (
@@ -65,7 +84,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}
         >
           <p style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif' }}>
-            {q ? `No products found for "${q}".` : 'No products found in this category.'}
+            {q ? `No products found for "${q}".` : 'No products found.'}
           </p>
         </div>
       ) : (

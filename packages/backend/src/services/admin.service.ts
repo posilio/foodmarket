@@ -22,6 +22,7 @@ const adminOrderInclude = {
 
 const adminProductInclude = {
   category: true,
+  typeCategory: true,
   variants: { orderBy: { createdAt: "asc" as const } },
   allergens: true,
   dietaryLabels: true,
@@ -167,7 +168,8 @@ function generateSlug(name: string): string {
 
 export interface CreateProductInput {
   name: string;
-  categoryId: string;
+  originCategoryId: string;
+  typeCategoryId?: string;
   countryOfOrigin?: string;
   brandName?: string;
   description?: string;
@@ -197,7 +199,8 @@ export async function createProduct(input: CreateProductInput) {
     data: {
       name: input.name,
       slug: finalSlug,
-      categoryId: input.categoryId,
+      originCategoryId: input.originCategoryId,
+      typeCategoryId: input.typeCategoryId,
       countryOfOrigin: input.countryOfOrigin,
       brandName: input.brandName,
       description: input.description,
@@ -223,7 +226,8 @@ export interface UpdateProductInput {
   imageUrl?: string;
   brandName?: string;
   countryOfOrigin?: string;
-  categoryId?: string;
+  originCategoryId?: string;
+  typeCategoryId?: string;
   isActive?: boolean;
 }
 
@@ -250,7 +254,8 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
       ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
       ...(input.brandName !== undefined && { brandName: input.brandName }),
       ...(input.countryOfOrigin !== undefined && { countryOfOrigin: input.countryOfOrigin }),
-      ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
+      ...(input.originCategoryId !== undefined && { originCategoryId: input.originCategoryId }),
+      ...(input.typeCategoryId !== undefined && { typeCategoryId: input.typeCategoryId }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
     },
     include: adminProductInclude,

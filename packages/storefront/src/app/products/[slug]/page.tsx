@@ -5,18 +5,6 @@ import { getProductBySlug } from '../../../lib/api';
 import { ProductVariantControl } from '../../../components/ProductVariantControl';
 import { ReviewsSection } from '../../../components/ReviewsSection';
 
-const COUNTRY_FLAG: Record<string, string> = {
-  'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Japan': '🇯🇵',
-  'South Korea': '🇰🇷', 'China': '🇨🇳', 'India': '🇮🇳',
-  'Lebanon': '🇱🇧', 'Turkey': '🇹🇷', 'Morocco': '🇲🇦',
-  'Ethiopia': '🇪🇹', 'Nigeria': '🇳🇬', 'Kenya': '🇰🇪',
-  'Mozambique': '🇲🇿', 'Tunisia': '🇹🇳', 'Iran': '🇮🇷',
-  'Jordan': '🇯🇴', 'Mexico': '🇲🇽', 'Peru': '🇵🇪',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'France': '🇫🇷',
-  'Italy': '🇮🇹', 'Spain': '🇪🇸', 'Greece': '🇬🇷',
-  'Portugal': '🇵🇹', 'Germany': '🇩🇪', 'Netherlands': '🇳🇱',
-  'Indonesia': '🇮🇩',
-};
 
 const DIETARY_STYLE: Record<string, { emoji: string; label: string; bg: string; color: string }> = {
   VEGAN:       { emoji: '🌱', label: 'Vegan',       bg: 'var(--color-primary-light)', color: 'var(--color-primary)' },
@@ -39,7 +27,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   if (!product) notFound();
 
   const activeVariants = product.variants.filter(v => v.isActive);
-  const flag = COUNTRY_FLAG[product.countryOfOrigin] ?? '🌍';
+  const flag = product.category?.emoji ?? '🌍';
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-12">

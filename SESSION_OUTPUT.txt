@@ -1,40 +1,49 @@
-SESSION NAME: FOOD-029 — Product reviews
-DATE: 2026-03-16
+SESSION NAME: FOOD-031 — Dual category system
+DATE: 2026-03-17
 
 FILES CHANGED:
-- packages/backend/src/prisma/schema.prisma — Added Review model (id, productId, customerId, rating Int, body String?, createdAt, updatedAt, @@unique([productId,customerId]), @@index([productId])). Added `reviews Review[]` relation to Product and Customer models.
-- packages/backend/src/app.ts — Imported reviewsRouter and mounted it at /api/v1.
-- packages/shared/src/index.ts — Added Review and ReviewsResponse interfaces.
-- packages/storefront/src/lib/api.ts — Added getReviews(slug) and submitReview(slug, rating, body, token). Added Review and ReviewsResponse imports.
-- packages/storefront/src/types/index.ts — Added Review and ReviewsResponse interface definitions.
-- packages/storefront/src/app/products/[slug]/page.tsx — Imported ReviewsSection and rendered <ReviewsSection slug={product.slug} /> below the two-column product block.
-- docs/IMPLEMENTATION_BACKLOG.md — FOOD-029 status TODO → DONE in both ticket and summary table.
+- packages/backend/src/prisma/schema.prisma — Added CategoryType enum (ORIGIN_REGION, ORIGIN_COUNTRY, PRODUCT_TYPE). Rewrote Category model: added emoji String?, type CategoryType, parentId String?, self-referential parent/children relation ("CategoryChildren"), named relations to Product ("ProductOrigin" → products, "ProductType" → typedProducts). Updated Product model: renamed categoryId → originCategoryId, updated relation to named "ProductOrigin", added typeCategoryId String? with nullable "ProductType" relation. Removed @@index([categoryId]), added @@index([originCategoryId]) and @@index([typeCategoryId]).
+- packages/backend/src/services/products.service.ts — Updated productInclude to add typeCategory. Changed getAllProducts() params: categorySlug → originRegionSlug, originCountrySlug, typeCategorySlug with Prisma where-clause using nested parent filter for region. Updated getAllCategories() (unchanged behaviour). Added getCategoryTree() returning { originRegions: [with children], productTypes }.
+- packages/backend/src/controllers/products.controller.ts — listProducts() now reads region/country/type query params. Added getCategoryTreeHandler() for new endpoint. Imported getCategoryTree.
+- packages/backend/src/routes/products.ts — Added GET /categories/tree route.
+- packages/backend/src/services/admin.service.ts — adminProductInclude now includes typeCategory. CreateProductInput: categoryId → originCategoryId, added typeCategoryId?. UpdateProductInput: categoryId → originCategoryId, added typeCategoryId?. createProduct and updateProduct updated accordingly.
+- packages/backend/src/routes/admin.ts — POST /admin/products and PATCH /admin/products/:id updated: categoryId → originCategoryId, added typeCategoryId.
+- packages/shared/src/index.ts — Added CategoryType type. Category interface: added emoji, type, parentId, children?. Product interface: added typeCategory. Added CategoryTree interface.
+- packages/storefront/src/types/index.ts — Added CategoryType type. Category interface: added emoji, type, parentId, children?. Product.countryOfOrigin now string | null. Product: added typeCategory. Added CategoryTree interface.
+- packages/storefront/src/lib/api.ts — getProducts() now accepts { region?, country?, type?, q? } options object. getCategories() unchanged. Added getCategoryTree() returning CategoryTree.
+- packages/storefront/src/app/page.tsx — Rewrote homepage: replaced getCategories()+CATEGORY_STYLE with getCategoryTree(). Added "Browse by origin" region cards section. Added "Shop by product type" pill row. Removed old flat category grid.
+- packages/storefront/src/app/products/page.tsx — Updated to use getCategoryTree(), getProducts({region,country,type,q}). Replaced CategoryFilterPills with DualFilterPills. Heading logic updated for region/country/type filters.
+- packages/storefront/src/app/products/[slug]/page.tsx — Removed COUNTRY_FLAG lookup. Uses product.category.emoji instead.
+- packages/storefront/src/components/ProductCard.tsx — Removed COUNTRY_FLAG constant. Uses product.category.emoji directly.
+- docs/IMPLEMENTATION_BACKLOG.md — (not yet updated — see below)
 
 FILES CREATED:
-- packages/backend/src/prisma/migrations/20260316180000_add_review/migration.sql — Creates Review table with PKconstraint, two FK constraints (→ Product, → Customer), unique index on (productId, customerId), and productId index.
-- packages/backend/src/services/reviews.service.ts — getReviewsForProduct(slug): returns reviews array + averageRating + totalReviews. createReview(customerId, slug, rating, body): validates 1–5 rating, upserts (update if same customer+product already reviewed).
-- packages/backend/src/routes/reviews.ts — GET /products/:slug/reviews (public). POST /products/:slug/reviews (requireAuth, 201).
-- packages/storefront/src/components/ReviewsSection.tsx — 'use client' component. Loads reviews on mount via getReviews(). Shows average star rating + count in heading. Lists reviews (stars, firstName, date, body). Shows star-picker form + optional textarea for logged-in users; shows "Sign in" link for guests. Submits via submitReview(), shows success state, reloads reviews.
+- packages/backend/src/prisma/migrations/20260317000000_dual_category_system/migration.sql — Creates CategoryType enum, adds emoji/type/parentId columns to Category, drops Category_name_key unique index, adds self-referential FK, renames categoryId → originCategoryId on Product, drops/recreates FK and index with new names, adds typeCategoryId column with FK and index.
+- packages/storefront/src/components/DualFilterPills.tsx — 'use client' component. Shows origin region pills with expandable country sub-pills, plus product type pills. Navigates using router.push preserving q param.
 
 MIGRATIONS:
-- 20260316180000_add_review — Adds Review table; one review per customer per product (unique constraint). Deployed to local DB via prisma migrate deploy.
+- 20260317000000_dual_category_system — Adds CategoryType enum, extends Category (emoji, type, parentId, self-FK), renames Product.categoryId → originCategoryId (with new FK/index names), adds Product.typeCategoryId. Deployed via migrate deploy.
 
 ENDPOINTS ADDED/CHANGED:
-- GET /api/v1/products/:slug/reviews — public → { reviews: [{id, rating, body, createdAt, customer:{firstName}}], averageRating: number|null, totalReviews: number }
-- POST /api/v1/products/:slug/reviews — Authorization: Bearer <token> required; body: { rating: number (1-5), body?: string } → 201 { data: { id, rating, body, createdAt, updatedAt, customer:{firstName} } }
+- GET /api/v1/products — query params changed: ?category= removed, replaced with ?region=, ?country=, ?type=, ?q= (all optional)
+- GET /api/v1/categories/tree — new public endpoint → { originRegions: [{...withChildren}], productTypes: [...] }
+- POST /api/v1/admin/products — body field categoryId → originCategoryId, added optional typeCategoryId
+- PATCH /api/v1/admin/products/:id — body field categoryId → originCategoryId, added optional typeCategoryId
+
+SEED CHANGES:
+- Completely rewrote packages/backend/src/prisma/seed.ts: 8 ORIGIN_REGION categories (East Asia, Southeast Asia, South Asia, Middle East, North Africa, Sub-Saharan Africa, Latin America, Europe), 26 ORIGIN_COUNTRY categories (each with flag emoji and parentId pointing to region), 6 PRODUCT_TYPE categories (Sauces & Condiments, Pastes, Grains & Legumes, Spices & Herbs, Oils & Vinegars, Dried & Preserved). All 54 products remapped to originCategoryId (country) and typeCategoryId (product type). Old flat categories (asian-sauces etc.) remain in DB as orphans.
+- Palestine (PS) and Mozambique (MZ) added as ORIGIN_COUNTRY under Middle East and Sub-Saharan Africa respectively.
 
 FRONTEND CHANGES:
-- ReviewsSection (storefront) — new client component on product detail page
-- ProductDetailPage (storefront) — added <ReviewsSection slug={product.slug} /> below product info
-
-ERRORS/ISSUES ENCOUNTERED:
-- storefront/src/types/index.ts is a local types file (not re-exporting from @foodmarket/shared). Added Review and ReviewsResponse directly there rather than importing from the shared package.
+- Homepage: "Browse by origin" 8-region card grid + "Shop by product type" pill row
+- Products page: dual filter rows (region pills → expands to country sub-pills; type pills)
+- ProductCard and product detail page: flag emoji from product.category.emoji instead of COUNTRY_FLAG lookup
 
 TEST RESULTS:
 - Build: PASS (backend tsc --noEmit clean, storefront tsc --noEmit clean)
 - Tests: 17 passed, 0 failed
 
 NOTES FOR CLAUDE.AI:
-- The Review model uses upsert so a customer can update their review (not create a second one). The POST endpoint returns 201 on both create and update.
-- updatedAt in the migration SQL uses DEFAULT CURRENT_TIMESTAMP as a fallback; Prisma manages it programmatically on every update.
+- The old flat category slugs (asian-sauces, grains-rice, etc.) remain in the DB with type=ORIGIN_COUNTRY (default) and parentId=null. They are not referenced by any products. A cleanup migration can remove them later.
+- GET /api/v1/categories (flat list) still works and is used by admin. GET /api/v1/categories/tree is the new storefront endpoint.
 - Remaining backlog: FOOD-025 (order cancellation + Mollie refund), FOOD-030 (discount codes), FOOD-020/021 (go-live).

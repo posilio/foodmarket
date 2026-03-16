@@ -28,6 +28,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum CategoryType {
+  ORIGIN_REGION
+  ORIGIN_COUNTRY
+  PRODUCT_TYPE
+}
+
 enum DietaryLabel {
   VEGAN
   VEGETARIAN
@@ -57,14 +63,20 @@ enum AllergenType {
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
-// A top-level grouping for products (e.g. "Asian Sauces", "Grains & Rice").
+// A hierarchical category node: either an origin region, origin country, or product type.
 model Category {
-  id          String    @id @default(cuid())
-  name        String    @unique
-  slug        String    @unique
-  description String?
-  createdAt   DateTime  @default(now())
-  products    Product[]
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  description   String?
+  emoji         String?
+  type          CategoryType
+  parentId      String?
+  parent        Category?     @relation("CategoryChildren", fields: [parentId], references: [id])
+  children      Category[]    @relation("CategoryChildren")
+  createdAt     DateTime      @default(now())
+  products      Product[]     @relation("ProductOrigin")
+  typedProducts Product[]     @relation("ProductType")
 }
 
 // A product in the catalogue; actual purchasable items are ProductVariants.
@@ -75,18 +87,20 @@ model Product {
   description     String?
   imageUrl        String?
   brandName       String?
-  countryOfOrigin String?
-  categoryId      String
-  category        Category              @relation(fields: [categoryId], references: [id])
-  isActive        Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  variants        ProductVariant[]
-  allergens       ProductAllergen[]
-  dietaryLabels   ProductDietaryLabel[]
-  reviews         Review[]
+  countryOfOrigin  String?
+  originCategoryId String
+  category         Category              @relation("ProductOrigin", fields: [originCategoryId], references: [id])
+  typeCategoryId   String?
+  typeCategory     Category?             @relation("ProductType", fields: [typeCategoryId], references: [id])
+  isActive         Boolean               @default(true)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  variants         ProductVariant[]
+  allergens        ProductAllergen[]
+  dietaryLabels    ProductDietaryLabel[]
+  reviews          Review[]
 
-  @@index([categoryId])
+  @@index([originCategoryId])
   @@index([isActive])
 }
 

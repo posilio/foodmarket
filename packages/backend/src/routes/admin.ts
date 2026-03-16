@@ -100,10 +100,11 @@ router.get("/admin/products", async (req, res, next) => {
 
 router.post("/admin/products", async (req, res, next) => {
   try {
-    const { name, categoryId, countryOfOrigin, brandName, description, imageUrl, variants } =
+    const { name, originCategoryId, typeCategoryId, countryOfOrigin, brandName, description, imageUrl, variants } =
       req.body as {
         name?: string;
-        categoryId?: string;
+        originCategoryId?: string;
+        typeCategoryId?: string;
         countryOfOrigin?: string;
         brandName?: string;
         description?: string;
@@ -111,8 +112,8 @@ router.post("/admin/products", async (req, res, next) => {
         variants?: unknown[];
       };
 
-    if (!name || !categoryId) {
-      throw new AppError("name and categoryId are required", 400);
+    if (!name || !originCategoryId) {
+      throw new AppError("name and originCategoryId are required", 400);
     }
     if (!Array.isArray(variants) || variants.length === 0) {
       throw new AppError("At least one variant is required", 400);
@@ -120,7 +121,8 @@ router.post("/admin/products", async (req, res, next) => {
 
     const product = await createProduct({
       name,
-      categoryId,
+      originCategoryId,
+      typeCategoryId,
       countryOfOrigin,
       brandName,
       description,
@@ -135,14 +137,15 @@ router.post("/admin/products", async (req, res, next) => {
 
 router.patch("/admin/products/:id", async (req, res, next) => {
   try {
-    const { name, description, imageUrl, brandName, countryOfOrigin, categoryId, isActive } =
+    const { name, description, imageUrl, brandName, countryOfOrigin, originCategoryId, typeCategoryId, isActive } =
       req.body as {
         name?: string;
         description?: string;
         imageUrl?: string;
         brandName?: string;
         countryOfOrigin?: string;
-        categoryId?: string;
+        originCategoryId?: string;
+        typeCategoryId?: string;
         isActive?: boolean;
       };
 
@@ -152,7 +155,8 @@ router.patch("/admin/products/:id", async (req, res, next) => {
       imageUrl,
       brandName,
       countryOfOrigin,
-      categoryId,
+      originCategoryId,
+      typeCategoryId,
       isActive,
     });
     res.json({ data: product });

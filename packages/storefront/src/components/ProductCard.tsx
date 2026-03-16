@@ -5,18 +5,6 @@ import { useCart } from '../context/CartContext';
 import { formatPrice } from '../lib/format';
 import type { Product } from '../types';
 
-const COUNTRY_FLAG: Record<string, string> = {
-  'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Japan': '🇯🇵',
-  'South Korea': '🇰🇷', 'China': '🇨🇳', 'India': '🇮🇳',
-  'Lebanon': '🇱🇧', 'Israel': '🇮🇱', 'Turkey': '🇹🇷',
-  'Morocco': '🇲🇦', 'Ethiopia': '🇪🇹', 'Nigeria': '🇳🇬',
-  'Kenya': '🇰🇪', 'Mozambique': '🇲🇿', 'Tunisia': '🇹🇳',
-  'Iran': '🇮🇷', 'Jordan': '🇯🇴', 'Mexico': '🇲🇽',
-  'Peru': '🇵🇪', 'Brazil': '🇧🇷', 'Argentina': '🇦🇷',
-  'France': '🇫🇷', 'Italy': '🇮🇹', 'Spain': '🇪🇸',
-  'Greece': '🇬🇷', 'Portugal': '🇵🇹', 'Germany': '🇩🇪',
-  'Netherlands': '🇳🇱', 'Indonesia': '🇮🇩',
-};
 
 interface Props {
   product: Product;
@@ -31,7 +19,7 @@ export function ProductCard({ product }: Props) {
     ? activeVariants.reduce((a, b) => a.priceEuroCents < b.priceEuroCents ? a : b)
     : null;
   const inStock = cheapest ? cheapest.stockQuantity > 0 : false;
-  const flag = COUNTRY_FLAG[product.countryOfOrigin] ?? '🌍';
+  const flag = product.category?.emoji ?? '🌍';
 
   function handleAdd() {
     if (!cheapest) return;

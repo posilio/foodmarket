@@ -1,22 +1,11 @@
-// Storefront homepage — hero, category grid, featured products.
+// Storefront homepage — hero, origin region cards, product type pills, featured products.
 import Link from 'next/link';
-import { getCategories, getProducts } from '../lib/api';
+import { getCategoryTree, getProducts } from '../lib/api';
 import { ProductCard } from '../components/ProductCard';
 
-const CATEGORY_STYLE: Record<string, { emoji: string }> = {
-  'asian-sauces':       { emoji: '🥢' },
-  'grains-rice':        { emoji: '🌾' },
-  'middle-eastern':     { emoji: '🫙' },
-  'latin-american':     { emoji: '🌶️' },
-  'african':            { emoji: '🌍' },
-  'european-specialty': { emoji: '🫒' },
-  'japanese':           { emoji: '🍱' },
-  'indian-spices':      { emoji: '🍛' },
-};
-
 export default async function HomePage() {
-  const [categories, allProducts] = await Promise.all([
-    getCategories(),
+  const [{ originRegions, productTypes }, allProducts] = await Promise.all([
+    getCategoryTree(),
     getProducts(),
   ]);
 
@@ -30,7 +19,6 @@ export default async function HomePage() {
         style={{ backgroundColor: 'var(--color-primary)', minHeight: '420px' }}
       >
         <div className="max-w-[1200px] mx-auto px-6 py-16 flex items-center gap-12 min-h-[420px]">
-          {/* Text block */}
           <div className="flex-1 animate-fade-up">
             <p
               className="text-xs tracking-[0.2em] uppercase mb-4"
@@ -75,7 +63,6 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          {/* Decorative grid */}
           <div
             className="hidden lg:grid shrink-0"
             style={{
@@ -100,7 +87,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Categories ── */}
+      {/* ── Browse by Origin ── */}
       <section className="max-w-[1200px] mx-auto px-6 py-16">
         <h2
           className="mb-8 text-center"
@@ -111,52 +98,88 @@ export default async function HomePage() {
             color: 'var(--color-text)',
           }}
         >
-          Shop by category
+          Browse by origin
         </h2>
         <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 list-none p-0">
-          {categories.map(category => {
-            const style = CATEGORY_STYLE[category.slug] ?? { emoji: '🛒' };
-            return (
-              <li key={category.id}>
-                <Link
-                  href={`/products?category=${category.slug}`}
-                  className="block py-8 px-6 rounded-2xl text-center group"
+          {originRegions.map(region => (
+            <li key={region.id}>
+              <Link
+                href={`/products?region=${region.slug}`}
+                className="block py-8 px-6 rounded-2xl text-center"
+                style={{
+                  backgroundColor: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  textDecoration: 'none',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                }}
+              >
+                <p style={{ fontSize: '48px', lineHeight: 1 }}>{region.emoji ?? '🌍'}</p>
+                <p
+                  className="mt-3"
                   style={{
-                    backgroundColor: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
-                    textDecoration: 'none',
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    fontFamily: 'Cormorant Garamond, serif',
+                    fontWeight: 600,
+                    fontSize: '20px',
+                    color: 'var(--color-text)',
                   }}
-                  onMouseEnter={undefined}
                 >
-                  <p style={{ fontSize: '48px', lineHeight: 1 }}>{style.emoji}</p>
-                  <p
-                    className="mt-3"
-                    style={{
-                      fontFamily: 'Cormorant Garamond, serif',
-                      fontWeight: 600,
-                      fontSize: '20px',
-                      color: 'var(--color-text)',
-                    }}
-                  >
-                    {category.name}
-                  </p>
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}
-                  >
-                    {category._count.products} products
-                  </p>
-                </Link>
-              </li>
-            );
-          })}
+                  {region.name}
+                </p>
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: 'var(--color-text-muted)', fontFamily: 'Jost, sans-serif', fontWeight: 300 }}
+                >
+                  {region.children.length} countr{region.children.length !== 1 ? 'ies' : 'y'}
+                </p>
+              </Link>
+            </li>
+          ))}
         </ul>
+      </section>
+
+      {/* ── Browse by Type ── */}
+      <section
+        style={{ backgroundColor: 'var(--color-surface)', borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)' }}
+        className="py-12"
+      >
+        <div className="max-w-[1200px] mx-auto px-6">
+          <h2
+            className="mb-6 text-center"
+            style={{
+              fontFamily: 'Cormorant Garamond, serif',
+              fontWeight: 600,
+              fontSize: '32px',
+              color: 'var(--color-text)',
+            }}
+          >
+            Shop by product type
+          </h2>
+          <div className="flex flex-wrap gap-3 justify-center">
+            {productTypes.map(pt => (
+              <Link
+                key={pt.id}
+                href={`/products?type=${pt.slug}`}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--color-primary-light)',
+                  color: 'var(--color-primary)',
+                  fontFamily: 'Jost, sans-serif',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                  border: '1px solid transparent',
+                }}
+              >
+                <span>{pt.emoji}</span>
+                <span>{pt.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── Featured products ── */}
       {featured.length > 0 && (
-        <section style={{ backgroundColor: 'var(--color-surface)', borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)' }} className="py-16">
+        <section className="py-16">
           <div className="max-w-[1200px] mx-auto px-6">
             <div className="flex items-baseline justify-between mb-8">
               <h2

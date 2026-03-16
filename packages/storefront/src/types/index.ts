@@ -1,12 +1,23 @@
 // Shared TypeScript types for storefront API responses.
 // These must stay in sync with the Prisma schema and backend responses.
 
+export type CategoryType = 'ORIGIN_REGION' | 'ORIGIN_COUNTRY' | 'PRODUCT_TYPE';
+
 export interface Category {
   id: string;
   name: string;
   slug: string;
   description: string | null;
-  _count: { products: number };
+  emoji: string | null;
+  type: CategoryType;
+  parentId: string | null;
+  children?: Category[];
+  _count?: { products: number };
+}
+
+export interface CategoryTree {
+  originRegions: Array<Category & { children: Category[] }>;
+  productTypes: Category[];
 }
 
 export interface Allergen {
@@ -35,9 +46,10 @@ export interface Product {
   slug: string;
   description: string | null;
   imageUrl: string | null;
-  countryOfOrigin: string;
+  countryOfOrigin: string | null;
   isActive: boolean;
   category: Category;
+  typeCategory: Category | null;
   variants: ProductVariant[];
   allergens: Allergen[];
   dietaryLabels: DietaryLabel[];
