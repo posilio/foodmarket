@@ -1,0 +1,46 @@
+SESSION NAME: Set up Claude Code workflow (CLAUDE.md, SESSION_OUTPUT.txt, permissions)
+DATE: 2026-03-16
+
+FILES CHANGED:
+- NEW_CHAT_STARTER.md — Added three new sections before Go-Live Checklist:
+    "How We Work" (two-tool loop explanation),
+    "Key Workflow Files" (CLAUDE.md / NEW_CHAT_STARTER.md / SESSION_OUTPUT.txt table),
+    "Railway Deployment" (services, how deploys work, NEXT_PUBLIC_* baking,
+    running migrations/seed on production, Railway gotchas).
+    Updated "Suggested Starter Prompt" to mention SESSION_OUTPUT.txt workflow.
+
+FILES CREATED:
+- CLAUDE.md — Claude Code behaviour rules: Session Output Rule (mandatory format
+    for SESSION_OUTPUT.txt after every task), two-tool workflow description,
+    general coding rules (typecheck, tests, conventions), key infrastructure facts,
+    Prisma command reference.
+- .claude/settings.json — Grants Claude Code blanket permissions for Bash(*),
+    Read(*), Write(*), Edit(*) so permission prompts don't interrupt sessions.
+- SESSION_OUTPUT.txt — This file. Confirms the session output workflow is active.
+
+MIGRATIONS:
+- None
+
+ENDPOINTS ADDED/CHANGED:
+- None
+
+FRONTEND CHANGES:
+- None
+
+ERRORS/ISSUES ENCOUNTERED:
+- None
+
+TEST RESULTS:
+- Build: not run (no code changes — documentation/config only)
+- Tests: not run
+
+NOTES FOR CLAUDE.AI:
+- Workflow is now active. Every future Claude Code session will overwrite this file.
+- .claude/settings.local.json (existing, granular permissions) is left untouched —
+  settings.json (broad allow-all) takes precedence for new sessions.
+- Railway deployment section documents the actual Dockerfiles and railway.toml files
+  found in each package. Backend auto-runs prisma migrate deploy on startup.
+- NEXT_PUBLIC_API_URL must be a Railway BUILD variable (not runtime) for storefront
+  and admin — it is baked into JS bundles at Docker build time (ARG in Dockerfile).
+- Next task: continue with remaining backlog items (FOOD-025, FOOD-029, FOOD-030)
+  or Railway go-live checklist (FOOD-020, FOOD-021).

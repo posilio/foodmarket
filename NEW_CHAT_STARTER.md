@@ -378,6 +378,84 @@ const { items, addItem, removeItem, updateQuantity, totalEuroCents } = useCart()
 
 ---
 
+## How We Work
+
+This project uses a two-tool loop between **Claude.ai** (for planning and writing prompts) and **Claude Code** (for local implementation).
+
+1. **Claude.ai** reviews context and writes a detailed implementation prompt
+2. Prompt is pasted into **Claude Code** in the local terminal
+3. Claude Code implements the changes, runs TypeScript checks and tests
+4. Claude Code writes `SESSION_OUTPUT.txt` to the project root (overwrites each time)
+5. `SESSION_OUTPUT.txt` is copied and pasted back to **Claude.ai**
+6. Claude.ai reviews what was done and writes the next implementation prompt
+
+This loop keeps Claude.ai informed about exactly what was implemented, what tests passed, and what issues arose — without needing to share the full codebase.
+
+---
+
+## Key Workflow Files
+
+| File | Purpose |
+|---|---|
+| `CLAUDE.md` | Claude Code behaviour rules — session output format, general rules, infrastructure facts |
+| `NEW_CHAT_STARTER.md` | Paste into any new Claude.ai chat to resume with full project context |
+| `SESSION_OUTPUT.txt` | Written by Claude Code after every task — paste back to Claude.ai to continue the loop |
+
+---
+
+## Railway Deployment
+
+### Services
+
+The project has four Railway services, all deployed from the same GitHub monorepo:
+
+| Service | Source | Config |
+|---|---|---|
+| `foodmarket-backend` | `packages/backend/Dockerfile` | `packages/backend/railway.toml` |
+| `foodmarket-storefront` | `packages/storefront/Dockerfile` | `packages/storefront/railway.toml` |
+| `foodmarket-admin` | `packages/admin/Dockerfile` | `packages/admin/railway.toml` |
+| `foodmarket-postgres` | Railway managed Postgres 16 | — |
+
+### How Deploys Work
+
+- Railway watches the `main` branch on GitHub
+- Every `git push` to `main` triggers a rebuild of all three services
+- Each Dockerfile builds from the monorepo root (workspace context required)
+- The backend Dockerfile automatically runs `prisma migrate deploy` on startup before starting the server
+
+### NEXT_PUBLIC_* Variables (build-time baking)
+
+`NEXT_PUBLIC_API_URL` is an ARG in the storefront and admin Dockerfiles — it is **baked into the JS bundle at build time**. It must be set as a Railway build variable (not just a runtime variable) for storefront and admin.
+
+### Running Migrations on Production
+
+The backend runs `prisma migrate deploy` automatically on every deploy (see Dockerfile CMD). For manual runs:
+
+```bash
+# Get the public URL from Railway dashboard:
+# Postgres service → Variables → DATABASE_PUBLIC_URL
+DATABASE_URL="postgresql://postgres:<password>@tramway.proxy.rlwy.net:<port>/railway" \
+  cd packages/backend && node_modules/.bin/prisma.cmd migrate deploy --schema=src/prisma/schema.prisma
+```
+
+### Seeding Production
+
+```bash
+DATABASE_URL="<railway-public-url>" \
+  cd packages/backend && node_modules/.bin/prisma.cmd db seed --schema=src/prisma/schema.prisma
+```
+
+### Railway Gotchas
+
+- **`ALLOWED_ORIGINS`** must include both production storefront AND admin URLs (comma-separated). Missing one breaks the respective frontend entirely.
+- **`FRONTEND_URL`** must be set to the production storefront URL for password reset emails to contain the correct link.
+- **`NEXT_PUBLIC_API_URL`** must be a Railway **build variable** (not just runtime) — it is baked into JS bundles at build time.
+- **`ADMIN_BOOTSTRAP_SECRET`** must be cleared (or unset) after the first admin is created. The bootstrap endpoint returns 403 once any admin exists, but leaving the secret set is a security risk.
+- **`MOLLIE_REDIRECT_BASE`** and **`WEBHOOK_BASE_URL`** must be set to production URLs before going live — Mollie will redirect customers and fire webhooks to whatever is configured here.
+- Railway internal URL (`DATABASE_URL`) works for the backend container. Use `DATABASE_PUBLIC_URL` for external access (migrations from local machine).
+
+---
+
 ## Go-Live Checklist
 
 > Run through this before flipping DNS to the production domain.
@@ -431,5 +509,9 @@ const { items, addItem, removeItem, updateQuantity, totalEuroCents } = useCart()
 I'm working on FoodMarket, a specialty food e-commerce platform.
 Please read NEW_CHAT_STARTER.md at the project root for full context before we begin.
 
+[If continuing from a previous session, paste SESSION_OUTPUT.txt here so you know exactly what was last implemented.]
+
 Today I want to work on: [describe what you want to do]
 ```
+
+> After each Claude Code session, copy `SESSION_OUTPUT.txt` from the project root and paste it at the top of your message here. This keeps Claude.ai in sync with what was implemented, what tests passed, and what issues arose.
