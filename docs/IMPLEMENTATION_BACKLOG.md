@@ -593,7 +593,7 @@ See `docs/DEPLOYMENT.md` for the full variable reference.
 | **ID** | FOOD-022 |
 | **Title** | Fix 2 failing backend tests |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -624,7 +624,7 @@ Two tests currently fail. CI will block on every push until these are fixed.
 | **ID** | FOOD-023 |
 | **Title** | GDPR basics — privacy policy page + cookie notice |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Storefront |
 | **Dependencies** | None |
 
@@ -860,8 +860,8 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | FOOD-019 | Stock import (EAN + PDF/CSV) | — | DONE | Backend + Admin |
 | FOOD-020 | Mollie live key swap | P1 | TODO | Backend + DevOps |
 | FOOD-021 | Production domain + SSL (Railway) | P1 | TODO | DevOps |
-| FOOD-022 | Fix 2 failing tests | P1 | TODO | Backend |
-| FOOD-023 | GDPR basics (privacy policy + cookie notice) | P1 | TODO | Storefront |
+| FOOD-022 | Fix 2 failing tests | P1 | DONE | Backend |
+| FOOD-023 | GDPR basics (privacy policy + cookie notice) | P1 | DONE | Storefront |
 | FOOD-024 | Password reset flow | P2 | TODO | Backend + Storefront |
 | FOOD-025 | Order cancellation + Mollie refund | P2 | TODO | Backend + Admin |
 | FOOD-026 | Low stock email alert (daily digest) | P2 | TODO | Backend |
