@@ -710,7 +710,7 @@ Admins can set order status to `CANCELLED` via the status dropdown, but this doe
 | **ID** | FOOD-026 |
 | **Title** | Low stock email alert — daily digest to admin |
 | **Priority** | P2 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -864,7 +864,7 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | FOOD-023 | GDPR basics (privacy policy + cookie notice) | P1 | DONE | Storefront |
 | FOOD-024 | Password reset flow | P2 | DONE | Backend + Storefront |
 | FOOD-025 | Order cancellation + Mollie refund | P2 | TODO | Backend + Admin |
-| FOOD-026 | Low stock email alert (daily digest) | P2 | TODO | Backend |
+| FOOD-026 | Low stock email alert (daily digest) | P2 | DONE | Backend |
 | FOOD-027 | VAT handling (NL 9%/21%) | P2 | TODO | Backend + Storefront |
 | FOOD-028 | Storefront search | P3 | TODO | Backend + Storefront |
 | FOOD-029 | Product reviews | P3 | TODO | Backend + Storefront |
