@@ -804,7 +804,7 @@ There is no search functionality. Users must browse by category to find products
 | **ID** | FOOD-029 |
 | **Title** | Product reviews (customer ratings) |
 | **Priority** | P3 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront |
 | **Dependencies** | None |
 
@@ -873,5 +873,5 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | FOOD-026 | Low stock email alert (daily digest) | P2 | DONE | Backend |
 | FOOD-027 | VAT handling (NL 9%/21%) | P2 | DEFERRED | Backend + Storefront |
 | FOOD-028 | Storefront search | P3 | DONE | Backend + Storefront |
-| FOOD-029 | Product reviews | P3 | TODO | Backend + Storefront |
+| FOOD-029 | Product reviews | P3 | DONE | Backend + Storefront |
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |

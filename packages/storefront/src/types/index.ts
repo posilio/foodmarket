@@ -46,3 +46,17 @@ export interface Product {
 export interface ApiResponse<T> {
   data: T;
 }
+
+export interface Review {
+  id: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+  customer: { firstName: string };
+}
+
+export interface ReviewsResponse {
+  reviews: Review[];
+  averageRating: number | null;
+  totalReviews: number;
+}

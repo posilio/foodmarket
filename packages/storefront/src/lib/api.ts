@@ -1,6 +1,6 @@
 // Typed fetch wrapper for calling the backend API from the storefront.
 // All data fetching goes through these functions — never call the backend directly from pages.
-import type { ApiResponse, Category, Product } from "../types";
+import type { ApiResponse, Category, Product, Review, ReviewsResponse } from "../types";
 
 function getBaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -77,4 +77,37 @@ export async function resetPassword(token: string, password: string): Promise<vo
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? "Invalid or expired reset link");
   }
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+export async function getReviews(slug: string): Promise<ReviewsResponse> {
+  return apiFetch<ReviewsResponse>(`/api/v1/products/${encodeURIComponent(slug)}/reviews`, {
+    cache: "no-store",
+  });
+}
+
+export async function submitReview(
+  slug: string,
+  rating: number,
+  body: string,
+  token: string
+): Promise<Review> {
+  const res = await fetch(
+    `${getBaseUrl()}/api/v1/products/${encodeURIComponent(slug)}/reviews`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ rating, body: body || undefined }),
+    }
+  );
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(data.message ?? "Failed to submit review");
+  }
+  const data = (await res.json()) as ApiResponse<Review>;
+  return data.data;
 }

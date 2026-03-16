@@ -84,6 +84,7 @@ model Product {
   variants        ProductVariant[]
   allergens       ProductAllergen[]
   dietaryLabels   ProductDietaryLabel[]
+  reviews         Review[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -147,6 +148,7 @@ model Customer {
   orders              Order[]
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  reviews             Review[]
 }
 
 // Short-lived token used to verify a password-reset request.
@@ -248,4 +250,20 @@ model OrderEvent {
   toStatus   OrderStatus?
   note       String?
   createdAt  DateTime     @default(now())
+}
+
+// Customer review of a product (one per customer per product).
+model Review {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  rating     Int
+  body       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, customerId])
+  @@index([productId])
 }

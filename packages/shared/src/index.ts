@@ -149,6 +149,22 @@ export interface Order {
   events: OrderEvent[];
 }
 
+// ─── Review types ──────────────────────────────────────────────────────────────
+
+export interface Review {
+  id: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+  customer: { firstName: string };
+}
+
+export interface ReviewsResponse {
+  reviews: Review[];
+  averageRating: number | null;
+  totalReviews: number;
+}
+
 // ─── Paginated API response ────────────────────────────────────────────────────
 
 export interface PagedResponse<T> {

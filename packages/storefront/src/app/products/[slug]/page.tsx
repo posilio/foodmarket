@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getProductBySlug } from '../../../lib/api';
 import { ProductVariantControl } from '../../../components/ProductVariantControl';
+import { ReviewsSection } from '../../../components/ReviewsSection';
 
 const COUNTRY_FLAG: Record<string, string> = {
   'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Japan': '🇯🇵',
@@ -53,7 +54,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
         <span style={{ color: 'var(--color-text)' }}>{product.name}</span>
       </div>
 
-      {/* Two-column layout */}
+      {/* Two-column layout — product info */}
       <div className="flex flex-col lg:flex-row gap-12">
         {/* Left — image */}
         <div className="lg:w-[55%]">
@@ -192,6 +193,9 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           )}
         </div>
       </div>
+
+      {/* Reviews */}
+      <ReviewsSection slug={product.slug} />
     </div>
   );
 }
