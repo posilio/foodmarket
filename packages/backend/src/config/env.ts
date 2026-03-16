@@ -42,6 +42,10 @@ export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
 // Frontend URL — used to build links in transactional emails.
 export const FRONTEND_URL = process.env.FRONTEND_URL ?? "http://localhost:3000";
 
+// Low stock alert job — email destination and threshold.
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "";
+export const LOW_STOCK_THRESHOLD = parseInt(process.env.LOW_STOCK_THRESHOLD ?? "10", 10);
+
 // CORS — comma-separated list of allowed origins.
 // In production set to your actual frontend domains.
 export const ALLOWED_ORIGINS = (

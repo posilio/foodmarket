@@ -2,7 +2,7 @@
 // All send functions degrade gracefully: if the API key is missing or the
 // Resend call fails the error is logged but never re-thrown.
 import { Resend } from "resend";
-import { RESEND_API_KEY, RESEND_FROM, FRONTEND_URL } from "../config/env";
+import { RESEND_API_KEY, RESEND_FROM, FRONTEND_URL, ADMIN_EMAIL } from "../config/env";
 import logger from "./logger";
 
 // "dummy" prevents the SDK from throwing on construction when key is absent
@@ -117,6 +117,68 @@ export async function sendOrderConfirmation(
     logger.info({ emailId: result.data?.id }, "Order confirmation email sent");
   } catch (err) {
     logger.error({ err }, "Failed to send order confirmation email");
+  }
+}
+
+export async function sendLowStockAlert(
+  variants: Array<{ name: string; label: string; sku: string; stockQty: number }>
+): Promise<void> {
+  if (!ADMIN_EMAIL) {
+    logger.warn("Low stock alert skipped: ADMIN_EMAIL not set");
+    return;
+  }
+  if (!canSendEmail()) {
+    logger.warn("Low stock alert skipped: RESEND_API_KEY not set");
+    return;
+  }
+
+  const rows = variants
+    .map(
+      (v) => `
+      <tr>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee">${v.name}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee">${v.label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;font-family:monospace">${v.sku}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:center;color:${v.stockQty === 0 ? "#dc2626" : "#d97706"};font-weight:bold">${v.stockQty}</td>
+      </tr>`
+    )
+    .join("");
+
+  const table = `
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0">
+      <thead>
+        <tr style="background:#f9fafb">
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e5e7eb">Product</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e5e7eb">Variant</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e5e7eb">SKU</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #e5e7eb">Stock</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  const html = emailWrapper(`
+    <h1 style="font-size:22px;margin-bottom:8px">Low stock alert ⚠️</h1>
+    <p style="color:#374151;margin-bottom:24px">
+      The following ${variants.length} variant${variants.length === 1 ? "" : "s"}
+      are at or below the low-stock threshold and may need restocking.
+    </p>
+    ${table}
+    <p style="margin-top:24px;color:#6b7280;font-size:13px">
+      Review stock levels in the admin panel and reorder as needed.
+    </p>
+  `);
+
+  try {
+    const result = await resend.emails.send({
+      from: RESEND_FROM,
+      to: ADMIN_EMAIL,
+      subject: `FoodMarket — Low stock alert (${variants.length} variant${variants.length === 1 ? "" : "s"})`,
+      html,
+    });
+    logger.info({ emailId: result.data?.id }, "Low stock alert email sent");
+  } catch (err) {
+    logger.error({ err }, "Failed to send low stock alert email");
   }
 }
 
