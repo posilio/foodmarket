@@ -74,7 +74,8 @@ model Product {
   slug            String                @unique
   description     String?
   imageUrl        String?
-  countryOfOrigin String
+  brandName       String?
+  countryOfOrigin String?
   categoryId      String
   category        Category              @relation(fields: [categoryId], references: [id])
   isActive        Boolean               @default(true)
@@ -83,6 +84,9 @@ model Product {
   variants        ProductVariant[]
   allergens       ProductAllergen[]
   dietaryLabels   ProductDietaryLabel[]
+
+  @@index([categoryId])
+  @@index([isActive])
 }
 
 // A purchasable size/weight variant of a product with its own price and stock.
@@ -94,12 +98,17 @@ model ProductVariant {
   ean            String?     @unique
   label          String
   weightGrams    Int?
+  volumeMl       Int?
   priceEuroCents Int
   stockQuantity  Int         @default(0)
   isActive       Boolean     @default(true)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   orderLines     OrderLine[]
+
+  @@index([productId])
+  @@index([stockQuantity])
+  @@index([isActive])
 }
 
 // Join table linking a product to the EU-14 allergens it contains.
@@ -193,6 +202,11 @@ model Order {
   lines             OrderLine[]
   payment           Payment?
   events            OrderEvent[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([stockReservedUntil])
 }
 
 // A single product variant line within an order; price is frozen at order time.
@@ -205,6 +219,8 @@ model OrderLine {
   quantity           Int
   unitPriceEuroCents Int
   createdAt          DateTime       @default(now())
+
+  @@index([orderId])
 }
 
 // The payment record associated with an order (one-to-one).
@@ -218,6 +234,8 @@ model Payment {
   paidAt            DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  @@index([providerReference])
 }
 
 // Append-only audit log recording every significant event on an order.

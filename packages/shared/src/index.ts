@@ -54,6 +54,7 @@ export interface ProductVariant {
   sku: string;
   label: string;
   weightGrams: number | null;
+  volumeMl: number | null;
   priceEuroCents: number;
   stockQuantity: number;
   isActive: boolean;
@@ -65,7 +66,8 @@ export interface Product {
   slug: string;
   description: string | null;
   imageUrl: string | null;
-  countryOfOrigin: string;
+  brandName: string | null;
+  countryOfOrigin: string | null;
   isActive: boolean;
   category: Category;
   variants: ProductVariant[];

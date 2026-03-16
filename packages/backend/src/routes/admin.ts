@@ -100,18 +100,19 @@ router.get("/admin/products", async (req, res, next) => {
 
 router.post("/admin/products", async (req, res, next) => {
   try {
-    const { name, categoryId, countryOfOrigin, description, imageUrl, variants } =
+    const { name, categoryId, countryOfOrigin, brandName, description, imageUrl, variants } =
       req.body as {
         name?: string;
         categoryId?: string;
         countryOfOrigin?: string;
+        brandName?: string;
         description?: string;
         imageUrl?: string;
         variants?: unknown[];
       };
 
-    if (!name || !categoryId || !countryOfOrigin) {
-      throw new AppError("name, categoryId, and countryOfOrigin are required", 400);
+    if (!name || !categoryId) {
+      throw new AppError("name and categoryId are required", 400);
     }
     if (!Array.isArray(variants) || variants.length === 0) {
       throw new AppError("At least one variant is required", 400);
@@ -121,6 +122,7 @@ router.post("/admin/products", async (req, res, next) => {
       name,
       categoryId,
       countryOfOrigin,
+      brandName,
       description,
       imageUrl,
       variants: variants as Parameters<typeof createProduct>[0]["variants"],
@@ -133,11 +135,12 @@ router.post("/admin/products", async (req, res, next) => {
 
 router.patch("/admin/products/:id", async (req, res, next) => {
   try {
-    const { name, description, imageUrl, countryOfOrigin, categoryId, isActive } =
+    const { name, description, imageUrl, brandName, countryOfOrigin, categoryId, isActive } =
       req.body as {
         name?: string;
         description?: string;
         imageUrl?: string;
+        brandName?: string;
         countryOfOrigin?: string;
         categoryId?: string;
         isActive?: boolean;
@@ -147,6 +150,7 @@ router.patch("/admin/products/:id", async (req, res, next) => {
       name,
       description,
       imageUrl,
+      brandName,
       countryOfOrigin,
       categoryId,
       isActive,
@@ -184,13 +188,14 @@ router.patch("/admin/products/:id/stock", async (req, res, next) => {
 
 router.post("/admin/products/:id/variants", async (req, res, next) => {
   try {
-    const { sku, label, priceEuroCents, stockQuantity, weightGrams } =
+    const { sku, label, priceEuroCents, stockQuantity, weightGrams, volumeMl } =
       req.body as {
         sku?: string;
         label?: string;
         priceEuroCents?: number;
         stockQuantity?: number;
         weightGrams?: number;
+        volumeMl?: number;
       };
 
     if (!sku || !label || priceEuroCents === undefined) {
@@ -206,6 +211,7 @@ router.post("/admin/products/:id/variants", async (req, res, next) => {
       priceEuroCents,
       stockQuantity,
       weightGrams,
+      volumeMl,
     });
     res.status(201).json({ data: variant });
   } catch (err) {
@@ -215,17 +221,18 @@ router.post("/admin/products/:id/variants", async (req, res, next) => {
 
 router.patch("/admin/products/:id/variants/:variantId", async (req, res, next) => {
   try {
-    const { label, priceEuroCents, isActive, ean } = req.body as {
+    const { label, priceEuroCents, isActive, ean, volumeMl } = req.body as {
       label?: string;
       priceEuroCents?: number;
       isActive?: boolean;
       ean?: string | null;
+      volumeMl?: number | null;
     };
 
     const variant = await updateVariant(
       String(req.params["id"]),
       String(req.params["variantId"]),
-      { label, priceEuroCents, isActive, ean }
+      { label, priceEuroCents, isActive, ean, volumeMl }
     );
     res.json({ data: variant });
   } catch (err) {

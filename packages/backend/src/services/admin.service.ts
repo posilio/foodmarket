@@ -168,7 +168,8 @@ function generateSlug(name: string): string {
 export interface CreateProductInput {
   name: string;
   categoryId: string;
-  countryOfOrigin: string;
+  countryOfOrigin?: string;
+  brandName?: string;
   description?: string;
   imageUrl?: string;
   variants: Array<{
@@ -177,6 +178,7 @@ export interface CreateProductInput {
     priceEuroCents: number;
     stockQuantity?: number;
     weightGrams?: number;
+    volumeMl?: number;
   }>;
 }
 
@@ -197,6 +199,7 @@ export async function createProduct(input: CreateProductInput) {
       slug: finalSlug,
       categoryId: input.categoryId,
       countryOfOrigin: input.countryOfOrigin,
+      brandName: input.brandName,
       description: input.description,
       imageUrl: input.imageUrl,
       variants: {
@@ -206,6 +209,7 @@ export async function createProduct(input: CreateProductInput) {
           priceEuroCents: v.priceEuroCents,
           stockQuantity: v.stockQuantity ?? 0,
           weightGrams: v.weightGrams,
+          volumeMl: v.volumeMl,
         })),
       },
     },
@@ -217,6 +221,7 @@ export interface UpdateProductInput {
   name?: string;
   description?: string;
   imageUrl?: string;
+  brandName?: string;
   countryOfOrigin?: string;
   categoryId?: string;
   isActive?: boolean;
@@ -243,6 +248,7 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
       ...(slug !== undefined && { slug }),
       ...(input.description !== undefined && { description: input.description }),
       ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
+      ...(input.brandName !== undefined && { brandName: input.brandName }),
       ...(input.countryOfOrigin !== undefined && { countryOfOrigin: input.countryOfOrigin }),
       ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
@@ -257,6 +263,7 @@ export interface AddVariantInput {
   priceEuroCents: number;
   stockQuantity?: number;
   weightGrams?: number;
+  volumeMl?: number;
 }
 
 export async function addVariant(productId: string, input: AddVariantInput) {
@@ -271,6 +278,7 @@ export async function addVariant(productId: string, input: AddVariantInput) {
       priceEuroCents: input.priceEuroCents,
       stockQuantity: input.stockQuantity ?? 0,
       weightGrams: input.weightGrams,
+      volumeMl: input.volumeMl,
     },
   });
 }
@@ -280,6 +288,7 @@ export interface UpdateVariantInput {
   priceEuroCents?: number;
   isActive?: boolean;
   ean?: string | null;
+  volumeMl?: number | null;
 }
 
 export async function updateVariant(
@@ -300,6 +309,7 @@ export async function updateVariant(
       ...(input.isActive !== undefined && { isActive: input.isActive }),
       // Convert empty string to null so the unique constraint works correctly
       ...(input.ean !== undefined && { ean: input.ean === "" ? null : input.ean }),
+      ...(input.volumeMl !== undefined && { volumeMl: input.volumeMl }),
     },
   });
 }
