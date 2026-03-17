@@ -20,6 +20,9 @@ import { ALLOWED_ORIGINS } from "./config/env";
 
 const app = express();
 
+// Trust Railway's reverse proxy so rate limiter reads the correct client IP
+app.set('trust proxy', 1);
+
 // CORS — must be first so pre-flight OPTIONS requests are handled before rate limiting.
 app.use(
   cors({
