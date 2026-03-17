@@ -5,42 +5,52 @@ import { useEffect, useRef, useState } from 'react';
 
 interface SearchInputProps {
   initialValue?: string;
+  /** When provided, disables URL navigation and calls this with the debounced value instead. */
+  onChange?: (q: string) => void;
 }
 
-export function SearchInput({ initialValue = '' }: SearchInputProps) {
+export function SearchInput({ initialValue = '', onChange }: SearchInputProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [value, setValue] = useState(initialValue);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync if the URL is cleared externally (e.g. clicking a category pill)
+  // Sync if the URL is cleared externally — only when operating in URL mode
   useEffect(() => {
-    setValue(searchParams.get('q') ?? '');
-  }, [searchParams]);
+    if (!onChange) setValue(searchParams.get('q') ?? '');
+  }, [searchParams, onChange]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.value;
     setValue(next);
 
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (next.trim()) {
-        params.set('q', next.trim());
-      } else {
-        params.delete('q');
-      }
-      router.replace(`${pathname}?${params.toString()}`);
-    }, 300);
+    if (onChange) {
+      timerRef.current = setTimeout(() => onChange(next.trim()), 200);
+    } else {
+      timerRef.current = setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (next.trim()) {
+          params.set('q', next.trim());
+        } else {
+          params.delete('q');
+        }
+        router.replace(`${pathname}?${params.toString()}`);
+      }, 300);
+    }
   }
 
   function handleClear() {
     setValue('');
     if (timerRef.current) clearTimeout(timerRef.current);
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('q');
-    router.replace(`${pathname}?${params.toString()}`);
+    if (onChange) {
+      onChange('');
+    } else {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('q');
+      router.replace(`${pathname}?${params.toString()}`);
+    }
   }
 
   return (

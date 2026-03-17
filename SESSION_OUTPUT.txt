@@ -1,49 +1,32 @@
-SESSION NAME: FOOD-031 — Dual category system
+SESSION NAME: perf: client-side product filtering
 DATE: 2026-03-17
 
 FILES CHANGED:
-- packages/backend/src/prisma/schema.prisma — Added CategoryType enum (ORIGIN_REGION, ORIGIN_COUNTRY, PRODUCT_TYPE). Rewrote Category model: added emoji String?, type CategoryType, parentId String?, self-referential parent/children relation ("CategoryChildren"), named relations to Product ("ProductOrigin" → products, "ProductType" → typedProducts). Updated Product model: renamed categoryId → originCategoryId, updated relation to named "ProductOrigin", added typeCategoryId String? with nullable "ProductType" relation. Removed @@index([categoryId]), added @@index([originCategoryId]) and @@index([typeCategoryId]).
-- packages/backend/src/services/products.service.ts — Updated productInclude to add typeCategory. Changed getAllProducts() params: categorySlug → originRegionSlug, originCountrySlug, typeCategorySlug with Prisma where-clause using nested parent filter for region. Updated getAllCategories() (unchanged behaviour). Added getCategoryTree() returning { originRegions: [with children], productTypes }.
-- packages/backend/src/controllers/products.controller.ts — listProducts() now reads region/country/type query params. Added getCategoryTreeHandler() for new endpoint. Imported getCategoryTree.
-- packages/backend/src/routes/products.ts — Added GET /categories/tree route.
-- packages/backend/src/services/admin.service.ts — adminProductInclude now includes typeCategory. CreateProductInput: categoryId → originCategoryId, added typeCategoryId?. UpdateProductInput: categoryId → originCategoryId, added typeCategoryId?. createProduct and updateProduct updated accordingly.
-- packages/backend/src/routes/admin.ts — POST /admin/products and PATCH /admin/products/:id updated: categoryId → originCategoryId, added typeCategoryId.
-- packages/shared/src/index.ts — Added CategoryType type. Category interface: added emoji, type, parentId, children?. Product interface: added typeCategory. Added CategoryTree interface.
-- packages/storefront/src/types/index.ts — Added CategoryType type. Category interface: added emoji, type, parentId, children?. Product.countryOfOrigin now string | null. Product: added typeCategory. Added CategoryTree interface.
-- packages/storefront/src/lib/api.ts — getProducts() now accepts { region?, country?, type?, q? } options object. getCategories() unchanged. Added getCategoryTree() returning CategoryTree.
-- packages/storefront/src/app/page.tsx — Rewrote homepage: replaced getCategories()+CATEGORY_STYLE with getCategoryTree(). Added "Browse by origin" region cards section. Added "Shop by product type" pill row. Removed old flat category grid.
-- packages/storefront/src/app/products/page.tsx — Updated to use getCategoryTree(), getProducts({region,country,type,q}). Replaced CategoryFilterPills with DualFilterPills. Heading logic updated for region/country/type filters.
-- packages/storefront/src/app/products/[slug]/page.tsx — Removed COUNTRY_FLAG lookup. Uses product.category.emoji instead.
-- packages/storefront/src/components/ProductCard.tsx — Removed COUNTRY_FLAG constant. Uses product.category.emoji directly.
-- docs/IMPLEMENTATION_BACKLOG.md — (not yet updated — see below)
+- packages/storefront/src/app/products/page.tsx — Simplified to a lean server component: fetches ALL products (no filter params) + getCategoryTree() once, reads only initialRegion and initialType from URL searchParams (for homepage links), passes everything to ProductsPageClient. Removed all filter/search/heading logic.
+- packages/storefront/src/components/DualFilterPills.tsx — Replaced router.push with onChange callback props (onRegionChange, onCountryChange, onTypeChange). Removed useRouter and useSearchParams dependencies. Buttons now call callbacks directly for instant in-memory filtering.
+- packages/storefront/src/components/SearchInput.tsx — Added optional onChange?: (q: string) => void prop. When provided: calls onChange with debounced value (200ms), skips all URL manipulation. URL mode (no onChange) unchanged for backward compat.
 
 FILES CREATED:
-- packages/backend/src/prisma/migrations/20260317000000_dual_category_system/migration.sql — Creates CategoryType enum, adds emoji/type/parentId columns to Category, drops Category_name_key unique index, adds self-referential FK, renames categoryId → originCategoryId on Product, drops/recreates FK and index with new names, adds typeCategoryId column with FK and index.
-- packages/storefront/src/components/DualFilterPills.tsx — 'use client' component. Shows origin region pills with expandable country sub-pills, plus product type pills. Navigates using router.push preserving q param.
+- packages/storefront/src/components/ProductsPageClient.tsx — 'use client' component. Receives allProducts (Product[]) and categoryTree as props. Maintains activeRegion, activeCountry, activeType, q in useState. Filters products in-memory via useMemo: region filter uses category.parentId, country filter uses category.id, type filter uses typeCategory?.id, search is case-insensitive name+description match. Renders SearchInput (with onChange), DualFilterPills (with callbacks), heading, count, and product grid. Derives heading from active filter state.
 
-MIGRATIONS:
-- 20260317000000_dual_category_system — Adds CategoryType enum, extends Category (emoji, type, parentId, self-FK), renames Product.categoryId → originCategoryId (with new FK/index names), adds Product.typeCategoryId. Deployed via migrate deploy.
+MIGRATIONS: None
 
-ENDPOINTS ADDED/CHANGED:
-- GET /api/v1/products — query params changed: ?category= removed, replaced with ?region=, ?country=, ?type=, ?q= (all optional)
-- GET /api/v1/categories/tree — new public endpoint → { originRegions: [{...withChildren}], productTypes: [...] }
-- POST /api/v1/admin/products — body field categoryId → originCategoryId, added optional typeCategoryId
-- PATCH /api/v1/admin/products/:id — body field categoryId → originCategoryId, added optional typeCategoryId
-
-SEED CHANGES:
-- Completely rewrote packages/backend/src/prisma/seed.ts: 8 ORIGIN_REGION categories (East Asia, Southeast Asia, South Asia, Middle East, North Africa, Sub-Saharan Africa, Latin America, Europe), 26 ORIGIN_COUNTRY categories (each with flag emoji and parentId pointing to region), 6 PRODUCT_TYPE categories (Sauces & Condiments, Pastes, Grains & Legumes, Spices & Herbs, Oils & Vinegars, Dried & Preserved). All 54 products remapped to originCategoryId (country) and typeCategoryId (product type). Old flat categories (asian-sauces etc.) remain in DB as orphans.
-- Palestine (PS) and Mozambique (MZ) added as ORIGIN_COUNTRY under Middle East and Sub-Saharan Africa respectively.
+ENDPOINTS ADDED/CHANGED: None
 
 FRONTEND CHANGES:
-- Homepage: "Browse by origin" 8-region card grid + "Shop by product type" pill row
-- Products page: dual filter rows (region pills → expands to country sub-pills; type pills)
-- ProductCard and product detail page: flag emoji from product.category.emoji instead of COUNTRY_FLAG lookup
+- ProductsPage (storefront) — now a thin server component; all UI and state moved to ProductsPageClient
+- ProductsPageClient (storefront) — new client component, instant in-memory filtering with useState/useMemo
+- DualFilterPills (storefront) — callback-based, no router dependency
+- SearchInput (storefront) — optional onChange prop for callback mode
+
+ERRORS/ISSUES ENCOUNTERED: None
 
 TEST RESULTS:
-- Build: PASS (backend tsc --noEmit clean, storefront tsc --noEmit clean)
-- Tests: 17 passed, 0 failed
+- Build: PASS (storefront tsc --noEmit clean)
+- Tests: not run (no backend changes)
 
 NOTES FOR CLAUDE.AI:
-- The old flat category slugs (asian-sauces, grains-rice, etc.) remain in the DB with type=ORIGIN_COUNTRY (default) and parentId=null. They are not referenced by any products. A cleanup migration can remove them later.
-- GET /api/v1/categories (flat list) still works and is used by admin. GET /api/v1/categories/tree is the new storefront endpoint.
+- Homepage region/type links still use ?region= and ?type= URL params; the server component reads them as initialRegion/initialType and passes to the client. After initial render, all filtering is client-side with no URL changes.
+- SearchInput in URL mode (no onChange prop) is unchanged — still works on any other page that uses it.
+- If the product catalogue grows very large (500+), consider adding a virtualised list. For now 54 products filter instantly.
 - Remaining backlog: FOOD-025 (order cancellation + Mollie refund), FOOD-030 (discount codes), FOOD-020/021 (go-live).

@@ -1,8 +1,6 @@
 'use client';
-// Dual filter rows for the products page:
-// Row 1 — origin regions (clicking a region expands country sub-pills below)
-// Row 2 — product types
-import { useRouter, useSearchParams } from 'next/navigation';
+// Dual filter rows for the products page.
+// Uses callbacks instead of router.push — filtering is instant and client-side.
 import type { Category } from '../types';
 
 interface Props {
@@ -11,23 +9,16 @@ interface Props {
   activeRegion?: string;
   activeCountry?: string;
   activeType?: string;
+  onRegionChange: (slug: string | undefined) => void;
+  onCountryChange: (slug: string | undefined) => void;
+  onTypeChange: (slug: string | undefined) => void;
 }
 
-export function DualFilterPills({ originRegions, productTypes, activeRegion, activeCountry, activeType }: Props) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  function buildUrl(params: Record<string, string | undefined>) {
-    const next = new URLSearchParams();
-    const q = searchParams.get('q');
-    if (q) next.set('q', q);
-    for (const [k, v] of Object.entries(params)) {
-      if (v) next.set(k, v);
-    }
-    return `/products${next.toString() ? `?${next.toString()}` : ''}`;
-  }
-
-  // The region whose countries are shown (either active or hovered)
+export function DualFilterPills({
+  originRegions, productTypes,
+  activeRegion, activeCountry, activeType,
+  onRegionChange, onCountryChange, onTypeChange,
+}: Props) {
   const expandedRegion = activeCountry
     ? originRegions.find(r => r.children.some(c => c.slug === activeCountry))
     : activeRegion
@@ -42,20 +33,18 @@ export function DualFilterPills({ originRegions, productTypes, activeRegion, act
     borderRadius: '999px',
     border: '1px solid var(--color-border)',
     cursor: 'pointer',
-    textDecoration: 'none',
+    background: 'none',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
     transition: 'background-color 0.15s, color 0.15s',
     whiteSpace: 'nowrap' as const,
   };
-
   const pillActive: React.CSSProperties = {
     backgroundColor: 'var(--color-primary)',
     color: '#fff',
     borderColor: 'var(--color-primary)',
   };
-
   const pillInactive: React.CSSProperties = {
     backgroundColor: 'var(--color-surface)',
     color: 'var(--color-text)',
@@ -69,17 +58,17 @@ export function DualFilterPills({ originRegions, productTypes, activeRegion, act
           Origin
         </span>
         <button
-          onClick={() => router.push(buildUrl({ type: activeType }))}
-          style={{ ...pillBase, ...((!activeRegion && !activeCountry) ? pillActive : pillInactive) }}
+          onClick={() => { onRegionChange(undefined); onCountryChange(undefined); }}
+          style={{ ...pillBase, ...(!activeRegion && !activeCountry ? pillActive : pillInactive) }}
         >
           All
         </button>
         {originRegions.map(region => {
-          const isActive = activeRegion === region.slug || (activeCountry && expandedRegion?.slug === region.slug);
+          const isActive = activeRegion === region.slug || (!!activeCountry && expandedRegion?.slug === region.slug);
           return (
             <button
               key={region.id}
-              onClick={() => router.push(buildUrl({ region: region.slug, type: activeType }))}
+              onClick={() => { onRegionChange(region.slug); onCountryChange(undefined); }}
               style={{ ...pillBase, ...(isActive ? pillActive : pillInactive) }}
             >
               <span>{region.emoji}</span>
@@ -89,14 +78,14 @@ export function DualFilterPills({ originRegions, productTypes, activeRegion, act
         })}
       </div>
 
-      {/* Country sub-row — shown when a region is selected */}
+      {/* Country sub-row */}
       {expandedRegion && expandedRegion.children.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', paddingLeft: '16px' }}>
           <span style={{ fontFamily: 'Jost, sans-serif', fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: '4px' }}>
             Country
           </span>
           <button
-            onClick={() => router.push(buildUrl({ region: expandedRegion.slug, type: activeType }))}
+            onClick={() => onCountryChange(undefined)}
             style={{ ...pillBase, ...(!activeCountry ? pillActive : pillInactive), fontSize: '12px', padding: '4px 12px' }}
           >
             All {expandedRegion.name}
@@ -104,7 +93,7 @@ export function DualFilterPills({ originRegions, productTypes, activeRegion, act
           {expandedRegion.children.map(country => (
             <button
               key={country.id}
-              onClick={() => router.push(buildUrl({ country: country.slug, type: activeType }))}
+              onClick={() => onCountryChange(country.slug)}
               style={{ ...pillBase, ...(activeCountry === country.slug ? pillActive : pillInactive), fontSize: '12px', padding: '4px 12px' }}
             >
               <span>{country.emoji}</span>
@@ -120,7 +109,7 @@ export function DualFilterPills({ originRegions, productTypes, activeRegion, act
           Type
         </span>
         <button
-          onClick={() => router.push(buildUrl({ region: activeRegion, country: activeCountry }))}
+          onClick={() => onTypeChange(undefined)}
           style={{ ...pillBase, ...(!activeType ? pillActive : pillInactive) }}
         >
           All types
@@ -128,7 +117,7 @@ export function DualFilterPills({ originRegions, productTypes, activeRegion, act
         {productTypes.map(pt => (
           <button
             key={pt.id}
-            onClick={() => router.push(buildUrl({ region: activeRegion, country: activeCountry, type: pt.slug }))}
+            onClick={() => onTypeChange(pt.slug)}
             style={{ ...pillBase, ...(activeType === pt.slug ? pillActive : pillInactive) }}
           >
             <span>{pt.emoji}</span>
