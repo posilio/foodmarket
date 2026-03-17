@@ -841,6 +841,55 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 
 ---
 
+### FOOD-032: Customer PDF Invoice
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-032 |
+| **Title** | Customer PDF invoice for every paid order |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | KVK registration (need company details) |
+
+**Summary:**
+Dutch law requires a proper invoice for every B2C sale.
+Currently customers only receive an order confirmation email
+with no downloadable invoice. This must be in place before
+go-live.
+
+**Invoice must include:**
+- FoodMarket company name, address, KVK number, BTW number
+- Invoice number (sequential, e.g. FM-2026-0001)
+- Invoice date
+- Customer name and delivery address
+- Order lines: product name, variant, quantity, unit price, line total
+- Shipping cost
+- Order total
+- BTW note: "Prijzen zijn inclusief BTW" (until KOR threshold
+  exceeded, then show actual BTW breakdown)
+
+**What to do:**
+- Add InvoiceNumber model to schema (sequential per year)
+- Generate PDF using a library like @react-pdf/renderer or
+  puppeteer on the backend when order transitions to PAID
+- Store PDF URL on Order or generate on demand
+- Add "Download invoice" button to storefront order detail page
+- Attach PDF to order confirmation email
+- Admin can also download invoice from order detail page
+
+**Files to change:**
+- New: packages/backend/src/services/invoice.service.ts
+- packages/backend/src/prisma/schema.prisma (InvoiceNumber model)
+- packages/backend/src/lib/email.ts (attach PDF)
+- packages/storefront/src/app/account/orders/[id]/page.tsx
+- packages/admin/src/app/orders/[id]/page.tsx
+
+**Note:** Do not implement until KVK number and BTW number
+are available to put on the invoice.
+
+---
+
 ## Backlog Summary
 
 | ID | Title | Priority | Status | Area |
@@ -875,3 +924,4 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | FOOD-028 | Storefront search | P3 | DONE | Backend + Storefront |
 | FOOD-029 | Product reviews | P3 | DONE | Backend + Storefront |
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |
+| FOOD-032 | Customer PDF invoice (per paid order) | P1 | TODO | Backend + Storefront |
