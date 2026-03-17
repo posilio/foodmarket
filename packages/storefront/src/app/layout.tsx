@@ -116,9 +116,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </h4>
                   <ul className="space-y-2.5" style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, fontSize: '14px' }}>
                     <li><Link href="/products" style={{ color: 'rgba(247,245,240,0.65)' }}>All products</Link></li>
-                    <li><Link href="/products?category=japanese" style={{ color: 'rgba(247,245,240,0.65)' }}>Japanese</Link></li>
-                    <li><Link href="/products?category=indian-spices" style={{ color: 'rgba(247,245,240,0.65)' }}>Indian Spices</Link></li>
-                    <li><Link href="/products?category=middle-eastern" style={{ color: 'rgba(247,245,240,0.65)' }}>Middle Eastern</Link></li>
+                    <li><Link href="/products?region=east-asia" style={{ color: 'rgba(247,245,240,0.65)' }}>East Asia</Link></li>
+                    <li><Link href="/products?region=south-asia" style={{ color: 'rgba(247,245,240,0.65)' }}>South Asia</Link></li>
+                    <li><Link href="/products?region=middle-east" style={{ color: 'rgba(247,245,240,0.65)' }}>Middle East</Link></li>
+                    <li><Link href="/products?region=europe" style={{ color: 'rgba(247,245,240,0.65)' }}>Europe</Link></li>
+                    <li><Link href="/products?region=sub-saharan-africa" style={{ color: 'rgba(247,245,240,0.65)' }}>Africa</Link></li>
+                    <li><Link href="/products?region=latin-america" style={{ color: 'rgba(247,245,240,0.65)' }}>Latin America</Link></li>
                   </ul>
                 </div>
 
