@@ -1,213 +1,29 @@
-SESSION NAME: Comprehensive pre-go-live security audit — 12 sections, CRITICAL/HIGH fixes applied
+SESSION NAME: docs: add FOOD-034 through FOOD-040 security audit findings to backlog
 DATE: 2026-03-18
 
 FILES CHANGED:
-- packages/backend/src/config/env.ts — Added minimum 32-character length check for JWT_SECRET (throws on startup if too short)
-- packages/backend/src/middleware/auth.middleware.ts — Added { algorithms: ['HS256'] } to jwt.verify() to prevent JWT algorithm confusion attacks (HIGH)
-- packages/backend/src/middleware/admin.middleware.ts — Added { algorithms: ['HS256'] } to jwt.verify() to prevent JWT algorithm confusion attacks (HIGH)
-- packages/backend/src/services/auth.service.ts — Fixed timing-safe dummy path: changed bcrypt.hash() to bcrypt.compare() with a fixed dummy hash so timing is consistent with a real compare operation
-- packages/backend/src/middleware/rateLimit.middleware.ts — Added passwordResetRateLimit (5 requests/hour per IP) for forgot-password and reset-password endpoints
-- packages/backend/src/routes/auth.ts — Applied passwordResetRateLimit to POST /auth/forgot-password and POST /auth/reset-password (previously used looser authRateLimit of 10/15min)
-- packages/backend/src/app.ts — Added helmet import and app.use(helmet()) after trust proxy, before CORS
-- packages/backend/Dockerfile — Added USER node before CMD in runner stage to run container as non-root (least privilege)
-- packages/backend/package.json — helmet added to dependencies (via npm install)
+- docs/IMPLEMENTATION_BACKLOG.md — added 7 new tickets (FOOD-034 to FOOD-040) from security audit findings; added all 7 rows to the summary table
 
 FILES CREATED:
-- docs/SECURITY_CHECKLIST.md — Full 12-section audit checklist with PASS/FAIL/PARTIAL/NA status, backlog items, last-audited table, recurring checks guidance, and update instructions
+- None
 
 MIGRATIONS:
 - None
 
 ENDPOINTS ADDED/CHANGED:
-- POST /auth/forgot-password — rate limit changed from authRateLimit (10/15min) to passwordResetRateLimit (5/hour)
-- POST /auth/reset-password — rate limit changed from authRateLimit (10/15min) to passwordResetRateLimit (5/hour)
-- All endpoints now get Helmet security headers applied globally
+- None
 
 FRONTEND CHANGES:
 - None
 
 ERRORS/ISSUES ENCOUNTERED:
-- None — all TypeScript checks and tests passed clean on first run
+- None
 
 TEST RESULTS:
-- Build: PASS (tsc --noEmit clean on backend, storefront, and admin)
-- Tests: 17 passed, 0 failed (backend vitest suite)
-
----
-
-AUDIT FINDINGS BY SECTION
-
-SECTION 1 — Authentication & JWT
-
-1.1 JWT_SECRET minimum length — FIXED (HIGH)
-  File: packages/backend/src/config/env.ts line 9
-  Was: Only checked for empty string. A short secret (e.g. "secret") was accepted.
-  Fix: Added `if (jwtSecret.length < 32) throw new Error(...)` after existence check.
-
-1.2 Token expiry — PASS
-  Access token 15m (JWT_ACCESS_EXPIRES_IN default), refresh 30 days (REFRESH_TOKEN_TTL_DAYS).
-
-1.3 Refresh token plaintext storage — NOTE (LOW)
-  File: packages/backend/src/services/auth.service.ts line 51
-  Refresh tokens stored as plaintext in DB. Risk is low (crypto.randomBytes(40) = 80-char hex, very high entropy). Hashing before storage would be ideal defence-in-depth. Added to backlog.
-
-1.4 Logout invalidation — PASS
-  revokeRefreshToken calls deleteMany; client-side clearAuth removes from localStorage.
-
-1.5 JWT algorithm confusion — FIXED (HIGH)
-  Files: auth.middleware.ts line 23, admin.middleware.ts line 30
-  Was: jwt.verify(token, JWT_SECRET) — no algorithm constraint.
-  Fix: jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) in both files.
-  Risk: Without this, an attacker could forge tokens using the 'none' algorithm.
-
-1.6 Admin DB check — PASS
-  admin.middleware.ts re-queries DB for isAdmin and isActive. Does not trust JWT claim.
-
-1.7 bcrypt rounds — PASS
-  BCRYPT_ROUNDS = 12 in auth.service.ts line 11.
-
-1.8 Timing-safe dummy compare — FIXED (MEDIUM)
-  File: packages/backend/src/services/auth.service.ts line 91-95
-  Was: Called bcrypt.hash(input.password, BCRYPT_ROUNDS) — hashing is slower than compare; timing slightly different from the real path.
-  Fix: Changed to bcrypt.compare(input.password, DUMMY_HASH) — matches real code path timing.
-
-SECTION 2 — Input Validation & Injection
-
-2.1 String length limits — NOTE (LOW)
-  No explicit max-length on name, email, etc. DB column limits apply as last resort. Added to backlog.
-
-2.2 SQL injection — PASS
-  No queryRaw or executeRaw found anywhere in backend source.
-
-2.3 Object injection — PASS
-  All route handlers destructure named fields from req.body before passing to Prisma.
-
-2.4 File upload — PASS
-  upload.middleware.ts: MIME whitelist (jpeg/png/webp), 5MB limit, memory storage (no FS write).
-
-2.5 Numeric input validation — PASS
-  Admin routes use Number.isInteger() and range checks on priceEuroCents, stockQuantity.
-
-2.6 PDF upload — N/A
-  PDF stock import uses a pre-uploaded base64 body; not a multer upload endpoint.
-
-SECTION 3 — Authorisation & Access Control
-
-3.1 Admin route coverage — PASS
-  routes/admin.ts uses router.use('/admin', requireAdmin) — covers all sub-routes.
-
-3.2 Customer data isolation — PASS
-  Orders and addresses services filter by customerId from JWT in all DB queries.
-
-3.3 Bootstrap endpoint — PASS (with note)
-  Returns 404 when secret not set. Checks for existing admin (403 if any). Rate limit: only global (200/min) — consider adding authRateLimit. Added to backlog (LOW).
-
-3.4 IDOR — PASS
-  All :id routes include ownership check (customerId from JWT in WHERE clause).
-
-3.5 Mollie webhook — PASS
-  Fetches fresh status from Mollie API before any DB write. Does not trust webhook body amount. Idempotent via PENDING status guard.
-
-SECTION 4 — Security Headers & CORS
-
-4.1 Helmet — FIXED (HIGH)
-  File: packages/backend/src/app.ts
-  Was: No security headers set (no X-Frame-Options, no X-Content-Type-Options, etc).
-  Fix: npm install helmet; app.use(helmet()) after trust proxy, before CORS.
-
-4.2 CORS — PASS
-  ALLOWED_ORIGINS env var; callback rejects unlisted origins.
-
-4.3 Cookie security — N/A
-  No server-side cookies. Tokens in localStorage (see Section 11).
-
-SECTION 5 — Rate Limiting & Abuse Prevention
-
-5.1-5.3 Existing rate limits — PASS
-  authRateLimit (10/15min) on login/register/refresh. globalRateLimit (200/min) on all routes. standardHeaders: true on both.
-
-5.4 Retry-After — PASS
-  standardHeaders: true sends RateLimit-* and Retry-After headers per RFC 6585.
-
-5.5 Forgot/reset password rate limit — FIXED (MEDIUM)
-  Files: rateLimit.middleware.ts, routes/auth.ts
-  Was: authRateLimit (10/15min) — attacker could send 40 forgot-password requests per hour.
-  Fix: New passwordResetRateLimit (5/hour) applied to both forgot-password and reset-password routes.
-
-5.6 Account lockout — NOTE (MEDIUM)
-  No lockout after repeated login failures. Rate limit provides partial protection. Added to backlog.
-
-SECTION 6 — Sensitive Data & Logging
-
-6.1 No sensitive data logged — PASS
-6.2 Stack trace suppression — PASS (error.middleware.ts omits err object in production)
-6.3 Global error handler — PASS (returns generic message to client, logs full detail server-side)
-6.4 Health endpoint — PASS (returns only { status, service })
-
-SECTION 7 — Dependency Security
-
-7.1 Backend npm audit — PASS (0 vulnerabilities)
-
-7.2 Storefront npm audit — FAIL (HIGH)
-  Next.js 14 has 4 CVEs: GHSA-3x4c (image cache DoS), GHSA-ggv3 (HTTP request smuggling),
-  GHSA-9g9p (Image Optimizer DoS), GHSA-h25m (RSC deserialization DoS).
-  Fix requires Next.js 15/16 upgrade — breaking change. Added to backlog HIGH.
-
-7.3 Admin npm audit — FAIL (same Next.js HIGH as storefront)
-
-SECTION 8 — Environment & Secrets
-
-8.1 .gitignore — PASS (.env, .env.local, .env.*.local all excluded)
-8.1b No .env in git history — PASS
-8.2 No hardcoded secrets — PASS
-8.3 Required: JWT_SECRET (throws). Optional with defaults: all others.
-8.4/8.5 ANTHROPIC_API_KEY and MOLLIE_API_KEY not in NEXT_PUBLIC_* — PASS
-
-SECTION 9 — GDPR & EU Law
-
-9.1 Privacy page — EXISTS
-9.2 Cookie banner — EXISTS
-9.5 Password reset tokens — PASS (SHA-256 hashed, 15min TTL, single-use)
-9.6 Account deletion — MISSING — GDPR right-to-erasure gap. Added to backlog MEDIUM.
-
-SECTION 10 — Payment Security
-
-10.1 Webhook idempotency — PASS
-10.2 Server-side totals — PASS
-10.3 Atomic stock decrement — PASS (prisma.$transaction)
-10.4 Stock negativity prevention — PASS
-
-SECTION 11 — Frontend Security
-
-11.1 JWT in localStorage — NOTE (HIGH, REPORT ONLY)
-  File: packages/storefront/src/context/AuthContext.tsx
-  Both access token and refresh token in localStorage. XSS can steal both.
-  Migration to httpOnly cookies is a significant refactor. Added to backlog HIGH.
-
-11.2 Admin auth guard — PASS (AdminGuard wraps root layout, checks isAdmin)
-11.3 Console.log sensitive data — PASS
-11.4 Next.js security headers — PARTIAL (next.config.mjs empty; no CSP configured)
-11.5 CSRF — PARTIAL (no cookies so no classical CSRF; XSS is the main risk)
-
-SECTION 12 — Infrastructure
-
-12.1 Dockerfile non-root user — FIXED (HIGH)
-  File: packages/backend/Dockerfile
-  Was: Container ran as root by default.
-  Fix: Added USER node before CMD in runner stage.
-
-12.2 PostgreSQL exposure — PASS (local dev only; Railway uses internal networking)
-
----
+- Tests not run (docs-only change)
 
 NOTES FOR CLAUDE.AI:
-
-1. Next.js CVEs (HIGH) — 4 CVEs in Next.js 14 remain unfixed because the fix requires upgrading to Next.js 15/16 which is a breaking change. CLAUDE.md currently pins Next.js 14. Decision needed: schedule a Next.js 15 upgrade sprint or explicitly accept the risk. This is the highest-risk open finding.
-
-2. localStorage tokens (HIGH) — Both access and refresh tokens live in localStorage. XSS on any storefront page can steal the 30-day refresh token and maintain persistent access. Migration to httpOnly cookies requires backend cookie middleware + frontend removal of localStorage reads/writes + CORS adjustments. Schedule this as a standalone sprint.
-
-3. Account deletion missing (MEDIUM) — GDPR right-to-erasure gap. Need DELETE /api/v1/customers/me that anonymises or hard-deletes customer data and cascades to orders.
-
-4. All CRITICAL/HIGH code-level fixes have been applied. TypeScript is clean across all 3 packages. 17 backend tests pass.
-
-5. Bootstrap endpoint gets only the globalRateLimit (200/min). If left enabled in staging environments, someone could brute-force the secret. Consider adding authRateLimit or a specific bootstrapRateLimit, and disabling the endpoint entirely in production (leave ADMIN_BOOTSTRAP_SECRET unset).
+- All 7 tickets added. Priority breakdown: P1 (FOOD-034, FOOD-035, FOOD-036), P2 (FOOD-037, FOOD-038, FOOD-039), P3 (FOOD-040).
+- FOOD-025 is shown as TODO in the summary table but was actually completed this session — may want to mark as DONE.
+- Remaining open P1 items (code): FOOD-034 (Next.js upgrade), FOOD-035 (httpOnly cookies), FOOD-036 (account deletion), FOOD-020 (Mollie live key — Railway only), FOOD-021 (production domain — Railway only).
+- Rebranding is pending domain/brand name confirmation.

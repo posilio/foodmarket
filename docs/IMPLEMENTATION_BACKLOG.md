@@ -923,6 +923,214 @@ as a reward. Points can be redeemed at checkout.
 
 ---
 
+### FOOD-034: Upgrade Next.js 14 → 15 (4 HIGH CVEs)
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-034 |
+| **Title** | Upgrade Next.js 14 → 15 to fix 4 HIGH security CVEs |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Storefront + Admin |
+| **Dependencies** | None |
+
+**Summary:**
+`npm audit` reports 4 HIGH CVEs in Next.js 14 across both storefront and admin:
+GHSA-3x4c (image cache DoS), GHSA-ggv3 (HTTP request smuggling),
+GHSA-9g9p (Image Optimizer DoS), GHSA-h25m (RSC deserialization DoS).
+Fix requires upgrading both packages to Next.js 15, which is a breaking change.
+
+**What to do:**
+- Review the Next.js 14 → 15 migration guide before starting
+- Upgrade `next`, `react`, `react-dom` in both storefront and admin
+- Test all pages after upgrade (layout, routing, data fetching, auth flow)
+- Update `CLAUDE.md` note about Next.js version after upgrade
+
+**Files to change:**
+- packages/storefront/package.json
+- packages/admin/package.json
+- Potentially: next.config.mjs in both packages (API changes)
+
+---
+
+### FOOD-035: Migrate JWT tokens from localStorage to httpOnly cookies
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-035 |
+| **Title** | Migrate JWT tokens from localStorage to httpOnly cookies |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront + Admin |
+| **Dependencies** | None |
+
+**Summary:**
+Access token and refresh token are currently stored in localStorage in both
+storefront and admin. XSS on any page can steal the 30-day refresh token and
+maintain persistent access. Migrating to httpOnly cookies eliminates this risk.
+
+**What to do:**
+- Backend: add `cookie-parser`; set tokens as `httpOnly + secure + sameSite=strict`
+  cookies on login/refresh; clear cookies on logout
+- Storefront `AuthContext`: remove localStorage reads/writes; read auth state
+  from a `/auth/me` call on mount instead
+- Admin `AuthContext`: same as storefront
+- CORS: `credentials: true` and specific origin already set — verify both ends
+- Do storefront and admin as separate sub-tasks
+
+**Files to change:**
+- packages/backend/src/routes/auth.ts
+- packages/storefront/src/context/AuthContext.tsx
+- packages/admin/src/context/AuthContext.tsx
+
+---
+
+### FOOD-036: GDPR right-to-erasure — DELETE /api/v1/customers/me
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-036 |
+| **Title** | GDPR Article 17 — customer account deletion endpoint |
+| **Priority** | P1 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | None |
+
+**Summary:**
+GDPR Article 17 requires the ability for customers to delete their own account
+and personal data. No such endpoint currently exists.
+
+**What to do:**
+- `DELETE /api/v1/customers/me` (requires `requireAuth`)
+- Anonymise personal identifiers: replace email with `deleted_<id>@deleted.invalid`,
+  null out name fields, delete Address records, delete RefreshToken records,
+  mark `Customer.isActive = false`
+- Retain order history for legal/tax purposes (7-year obligation) but strip
+  personal identifiers from linked records
+- Add a "Delete my account" button on the storefront `/account` page
+- Return 204 on success; log the deletion event with Pino
+
+**Files to change:**
+- packages/backend/src/routes/customers.ts (or auth.ts)
+- packages/backend/src/services/auth.service.ts
+- packages/storefront/src/app/account/page.tsx
+
+---
+
+### FOOD-037: Hash refresh tokens before storing in DB
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-037 |
+| **Title** | Hash refresh tokens before storing in DB (defence-in-depth) |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend |
+| **Dependencies** | None |
+
+**Summary:**
+Refresh tokens are stored as plaintext in the `RefreshToken` table. Entropy
+is high (`crypto.randomBytes(40)`) so the practical risk is low, but hashing
+before storage is standard defence-in-depth — a DB leak would not expose
+valid tokens.
+
+**What to do:**
+- SHA-256 hash the token before `INSERT`; on lookup, hash the incoming token
+  and compare against the stored hash
+- No schema migration needed (same `String` column)
+- On deploy: invalidate all existing tokens by truncating the `RefreshToken`
+  table (or add a `tokenVersion` field to `Customer`)
+
+**Files to change:**
+- packages/backend/src/services/auth.service.ts
+
+---
+
+### FOOD-038: Account lockout after repeated login failures
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-038 |
+| **Title** | Account lockout after N consecutive failed login attempts |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend |
+| **Dependencies** | None |
+
+**Summary:**
+Rate limiting (10/15min per IP) is the only brute-force protection. A
+distributed attack from multiple IPs is not rate-limited at the account
+level. Add per-account lockout as a second layer.
+
+**What to do:**
+- Add `failedLoginAttempts Int @default(0)` and `lockedUntil DateTime?`
+  to the `Customer` model (requires migration)
+- On login failure: increment `failedLoginAttempts`; if >= 10, set
+  `lockedUntil = now() + 15min`
+- On login: check `lockedUntil` before bcrypt compare; return 429 if locked
+- On login success: reset `failedLoginAttempts = 0`
+- Admin panel: show lockout status on customer detail; allow manual unlock
+
+**Files to change:**
+- packages/backend/src/prisma/schema.prisma
+- packages/backend/src/services/auth.service.ts
+- New migration required
+
+---
+
+### FOOD-039: String input max-length validation across all routes
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-039 |
+| **Title** | Add max-length validation to all string inputs |
+| **Priority** | P2 |
+| **Status** | TODO |
+| **Area** | Backend |
+| **Dependencies** | None |
+
+**Summary:**
+No explicit max-length checks on string inputs. DB column limits apply as
+a last resort but produce opaque 500 errors, not clean 400 responses.
+
+**What to do:**
+- Add length checks to all POST/PATCH route handlers (or introduce zod schemas)
+- Suggested limits: email 254, firstName/lastName 100, street 255, city 100,
+  postalCode 10, notes 1000, product name 200, description 5000
+- Return 400 with a descriptive message when a limit is exceeded
+
+**Files to change:**
+- packages/backend/src/routes/ (all route files with string inputs)
+
+---
+
+### FOOD-040: Stricter rate limit on bootstrap endpoint
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-040 |
+| **Title** | Apply authRateLimit to POST /api/v1/bootstrap/admin |
+| **Priority** | P3 |
+| **Status** | TODO |
+| **Area** | Backend |
+| **Dependencies** | None |
+
+**Summary:**
+`POST /api/v1/bootstrap/admin` only gets the global rate limit (200/min).
+If `ADMIN_BOOTSTRAP_SECRET` is accidentally left set in a staging environment,
+the secret could be brute-forced. Apply `authRateLimit` (10/15min) to this
+endpoint as a precaution.
+
+**What to do:**
+- Apply `authRateLimit` middleware to the bootstrap route
+- Document in `CLAUDE.md` and deployment notes that `ADMIN_BOOTSTRAP_SECRET`
+  must be unset (or cleared in Railway env vars) after the first admin is created
+
+**Files to change:**
+- packages/backend/src/routes/bootstrap.ts
+
+---
+
 ## Backlog Summary
 
 | ID | Title | Priority | Status | Area |
@@ -959,3 +1167,10 @@ as a reward. Points can be redeemed at checkout.
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |
 | FOOD-032 | Customer PDF invoice (per paid order) | P1 | TODO | Backend + Storefront |
 | FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | TODO | Backend + Storefront |
+| FOOD-034 | Upgrade Next.js 14 → 15 (4 HIGH CVEs) | P1 | TODO | Storefront + Admin |
+| FOOD-035 | Migrate JWT tokens from localStorage to httpOnly cookies | P1 | TODO | Backend + Storefront + Admin |
+| FOOD-036 | GDPR right-to-erasure (DELETE /customers/me) | P1 | TODO | Backend + Storefront |
+| FOOD-037 | Hash refresh tokens before storing in DB | P2 | TODO | Backend |
+| FOOD-038 | Account lockout after repeated login failures | P2 | TODO | Backend |
+| FOOD-039 | String input max-length validation across all routes | P2 | TODO | Backend |
+| FOOD-040 | Stricter rate limit on bootstrap endpoint | P3 | TODO | Backend |
