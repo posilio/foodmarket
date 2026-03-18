@@ -89,8 +89,10 @@ export async function loginCustomer(input: LoginInput) {
   const invalidCredentials = new AppError("Invalid credentials", 401);
 
   if (!customer) {
-    // Still run bcrypt to prevent timing attacks that reveal email existence.
-    await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+    // Still run bcrypt.compare to prevent timing attacks that reveal email existence.
+    // Using a fixed dummy hash that will always fail comparison.
+    const DUMMY_HASH = "$2b$12$invalidhashpaddingtomatchbcryptlengthXXXXXXXXXXXXXXXXXX";
+    await bcrypt.compare(input.password, DUMMY_HASH).catch(() => {});
     throw invalidCredentials;
   }
 

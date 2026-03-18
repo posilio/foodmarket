@@ -14,6 +14,16 @@ export const authRateLimit = rateLimit({
   message: rateLimitResponse,
 });
 
+// Stricter limiter for password-reset endpoints — 5 requests per hour per IP
+// Prevents brute-force enumeration of email addresses and token exhaustion attacks.
+export const passwordResetRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitResponse,
+});
+
 // Global limiter — 200 requests per minute per IP (safety net for all routes)
 export const globalRateLimit = rateLimit({
   windowMs: 60 * 1000,

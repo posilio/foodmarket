@@ -3,6 +3,7 @@
 import path from "path";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import productsRouter from "./routes/products";
 import authRouter from "./routes/auth";
 import ordersRouter from "./routes/orders";
@@ -22,6 +23,9 @@ const app = express();
 
 // Trust Railway's reverse proxy so rate limiter reads the correct client IP
 app.set('trust proxy', 1);
+
+// Security headers — set before CORS and routing
+app.use(helmet());
 
 // CORS — must be first so pre-flight OPTIONS requests are handled before rate limiting.
 app.use(

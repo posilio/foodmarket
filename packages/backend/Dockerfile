@@ -42,5 +42,8 @@ COPY --from=base /app/packages/backend/src/prisma/migrations ./packages/backend/
 ENV NODE_ENV=production
 EXPOSE 4000
 
+# Run as non-root user for least-privilege security
+USER node
+
 # Run pending migrations then start the server
 CMD ["sh", "-c", "cd packages/backend && node_modules/.bin/prisma migrate deploy --schema=src/prisma/schema.prisma && node dist/index.js"]

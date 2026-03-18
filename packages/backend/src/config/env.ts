@@ -11,6 +11,12 @@ if (!jwtSecret || jwtSecret.trim() === "") {
       "Add it to packages/backend/.env before starting the server."
   );
 }
+if (jwtSecret.length < 32) {
+  throw new Error(
+    "JWT_SECRET must be at least 32 characters long. " +
+      "Use a cryptographically random string (e.g. openssl rand -hex 32)."
+  );
+}
 export const JWT_SECRET: string = jwtSecret;
 // Access tokens are short-lived (15m). Clients use the refresh token to get a new one.
 export const JWT_ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN ?? "15m";
