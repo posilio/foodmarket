@@ -1,9 +1,10 @@
-SESSION NAME: feat: FOOD-025 order cancellation with Mollie refund + stock restore
+SESSION NAME: feat: FOOD-026 low stock alert job with node-cron + per-admin emails
 DATE: 2026-03-18
 
 FILES CHANGED:
-- packages/backend/src/services/payments.service.ts — added exported createRefund() helper
-- packages/backend/src/services/admin.service.ts — rewrote updateOrderStatus() to handle cancellation of PAID/PROCESSING/SHIPPED orders: Mollie refund + stock restore + payment status update, all in a single Prisma transaction
+- packages/backend/src/jobs/lowStockAlert.ts — full rewrite: switched from setInterval+hour-check to node-cron (daily 08:00 Amsterdam), queries admin Customer records instead of ADMIN_EMAIL env var, exported runLowStockAlert(), added top-level try/catch for graceful degradation
+- packages/backend/src/lib/email.ts — sendLowStockAlert() now accepts (variants, to: string) instead of reading ADMIN_EMAIL from env; removed ADMIN_EMAIL import (no longer needed in this file)
+- package-lock.json — node-cron added as dependency
 
 FILES CREATED:
 - None
@@ -12,36 +13,22 @@ MIGRATIONS:
 - None
 
 ENDPOINTS ADDED/CHANGED:
-- PATCH /admin/orders/:id/status — now triggers Mollie refund + stock restore when cancelling a PAID/PROCESSING/SHIPPED order. No change to request/response shape.
+- None
 
 FRONTEND CHANGES:
 - None
 
 ERRORS/ISSUES ENCOUNTERED:
-- Mollie SDK paymentRefunds.create() does not accept (paymentId, data) — the payment ID must be inside the params object: { paymentId, amount }. Fixed after reading the TypeScript types.
+- None
 
 TEST RESULTS:
 - Build: PASS (tsc --noEmit clean)
 - Tests: 17 passed, 0 failed
 
 NOTES FOR CLAUDE.AI:
-- createRefund() lives in payments.service.ts (lines ~204-219). Signature:
-    createRefund(molliePaymentId: string, amountEuroCents: number): Promise<void>
-  Uses mollie.paymentRefunds.create({ paymentId, amount: { value, currency } }).
-  Throws (not degrades) so that the caller in admin.service.ts can catch and decide.
-
-- updateOrderStatus() flow for CANCELLED:
-  1. Load order with lines + payment
-  2. Determine if refund+restore needed (PAID/PROCESSING/SHIPPED only)
-  3. If yes: call createRefund() outside the transaction; catch errors, set mollieRefundSucceeded flag
-  4. Single Prisma transaction:
-     - Update order status to CANCELLED
-     - Write STATUS_UPDATED OrderEvent
-     - Restore stock (increment by line.quantity for each OrderLine)
-     - Update Payment.status → REFUNDED (success) or FAILED (mollie error)
-     - Write REFUND_INITIATED or REFUND_FAILED OrderEvent
-  5. Stock restore and DB writes always succeed even if Mollie fails
-  6. If Mollie not configured (local dev, no API key), createRefund throws, catch logs the error, DB writes still run
-
-- PENDING orders cancelled by admin: no refund, no stock restore (stock was never decremented for PENDING orders — the expiry job handles those).
-- DELIVERED orders cancelled by admin: no refund, no stock restore (treated same as PENDING — already delivered, refund would need to be manual).
+- node-cron installed: "node-cron" in dependencies, "@types/node-cron" in devDependencies of packages/backend.
+- sendLowStockAlert() signature changed — callers must now pass the recipient email address as second argument. Only caller is lowStockAlert.ts (loops over admin customers and calls once per admin).
+- runLowStockAlert() is now exported — can be called directly in tests or one-off scripts.
+- startLowStockAlertJob() schedules via cron.schedule('0 8 * * *', ..., { timezone: 'Europe/Amsterdam' }) — no more manual hour-of-day check needed.
+- ADMIN_EMAIL env var is still defined in config/env.ts (kept for forward compat / Railway config) but is no longer read by the email module.
+- If no admin customers exist in the DB, the job logs a warning and skips sending.

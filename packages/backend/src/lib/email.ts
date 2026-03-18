@@ -2,7 +2,7 @@
 // All send functions degrade gracefully: if the API key is missing or the
 // Resend call fails the error is logged but never re-thrown.
 import { Resend } from "resend";
-import { RESEND_API_KEY, RESEND_FROM, FRONTEND_URL, ADMIN_EMAIL } from "../config/env";
+import { RESEND_API_KEY, RESEND_FROM, FRONTEND_URL } from "../config/env";
 import logger from "./logger";
 
 // "dummy" prevents the SDK from throwing on construction when key is absent
@@ -121,12 +121,9 @@ export async function sendOrderConfirmation(
 }
 
 export async function sendLowStockAlert(
-  variants: Array<{ name: string; label: string; sku: string; stockQty: number }>
+  variants: Array<{ name: string; label: string; sku: string; stockQty: number }>,
+  to: string
 ): Promise<void> {
-  if (!ADMIN_EMAIL) {
-    logger.warn("Low stock alert skipped: ADMIN_EMAIL not set");
-    return;
-  }
   if (!canSendEmail()) {
     logger.warn("Low stock alert skipped: RESEND_API_KEY not set");
     return;
@@ -172,7 +169,7 @@ export async function sendLowStockAlert(
   try {
     const result = await resend.emails.send({
       from: RESEND_FROM,
-      to: ADMIN_EMAIL,
+      to,
       subject: `FoodMarket — Low stock alert (${variants.length} variant${variants.length === 1 ? "" : "s"})`,
       html,
     });
