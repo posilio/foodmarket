@@ -1,4 +1,4 @@
-SESSION NAME: fix: verify FOOD-022 failing tests (already resolved)
+SESSION NAME: verify: shipping notification email on SHIPPED status (already present)
 DATE: 2026-03-18
 
 FILES CHANGED:
@@ -17,15 +17,52 @@ FRONTEND CHANGES:
 - None
 
 ERRORS/ISSUES ENCOUNTERED:
-- Both fixes described in the task were already applied in a prior session:
-  - auth.test.ts line 46 already uses res.body.data.customer (not res.body.data)
-  - Both afterAll blocks already delete refreshToken records before Customer
-- No changes needed.
+- None
 
 TEST RESULTS:
-- Build: PASS
+- Build: PASS (tsc not run — no changes)
 - Tests: 17 passed, 0 failed
 
 NOTES FOR CLAUDE.AI:
-- FOOD-022 is fully resolved. The backlog status can be marked DONE if not already.
-- Remaining open items: FOOD-020 (Mollie live key), FOOD-021 (production domain), FOOD-025 (order cancellation + refund), FOOD-030 (discount codes), FOOD-032 (PDF invoice), FOOD-033 (loyalty points).
+- sendShippingNotification() is already called in the SHIPPED branch.
+  Exact location: packages/backend/src/services/admin.service.ts, lines 121–129,
+  inside updateOrderStatus() — runs outside the Prisma transaction after the
+  status update and OrderEvent are committed.
+
+- Call site (lines 121–129):
+    if (newStatus === OrderStatus.SHIPPED) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: updatedOrder.customerId },
+        select: { email: true },
+      });
+      if (customer) {
+        await sendShippingNotification(updatedOrder, customer.email);
+      }
+    }
+
+- sendShippingNotification signature (email.ts line 228):
+    sendShippingNotification(order: EmailOrder, customerEmail: string): Promise<void>
+  where EmailOrder = { id, totalEuroCents, lines: [{ quantity, unitPriceEuroCents,
+    variant: { label, product: { name } } }] }
+  The updatedOrder from adminOrderInclude satisfies this shape.
+
+- Graceful degradation: sendShippingNotification wraps its Resend call in try/catch
+  internally (email.ts lines 254–264) and never re-throws. A failed email will log
+  an error but will never surface as a 500 to the admin. The outer call in
+  admin.service.ts does not need an additional .catch() because the function itself
+  never rejects.
+
+- All P1 checklist items are now verified or resolved:
+    DONE  Cart persistence
+    DONE  Auth persistence
+    DONE  Stock decrement / expiry job
+    DONE  Admin api.ts
+    DONE  Admin auth guard
+    DONE  Admin bootstrap
+    DONE  Tests (17/17)
+    DONE  Rate limiting
+    DONE  GDPR basics
+    DONE  Password reset
+    DONE  Shipping notification email (verified this session)
+    TODO  Mollie live key swap (FOOD-020) — env var only
+    TODO  Production domain + SSL (FOOD-021) — Railway config only
