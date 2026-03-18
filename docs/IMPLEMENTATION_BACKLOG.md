@@ -890,6 +890,39 @@ are available to put on the invoice.
 
 ---
 
+### FOOD-033: Loyalty Points for Reviews (Kortingspunten)
+
+| Field | Value |
+|---|---|
+| **ID** | FOOD-033 |
+| **Title** | Reward customers with discount points for leaving a review |
+| **Priority** | P3 |
+| **Status** | TODO |
+| **Area** | Backend + Storefront |
+| **Dependencies** | FOOD-029 (reviews), FOOD-030 (discount codes) |
+
+**Summary:**
+After receiving a delivered order, customers can leave a
+review and earn kortingspunten (loyalty/discount points)
+as a reward. Points can be redeemed at checkout.
+
+**What to do:**
+- Add LoyaltyPoints model to schema (customerId, points, reason, createdAt)
+- When a review is submitted for a DELIVERED order product,
+  award X points to the customer
+- Add points balance to customer account page
+- Allow points redemption at checkout as a discount
+- Admin can view and adjust customer points balance
+
+**Files to change:**
+- packages/backend/src/prisma/schema.prisma
+- packages/backend/src/services/reviews.service.ts
+- packages/backend/src/services/orders.service.ts
+- packages/storefront/src/app/account/page.tsx
+- packages/storefront/src/app/checkout/page.tsx
+
+---
+
 ## Backlog Summary
 
 | ID | Title | Priority | Status | Area |
@@ -925,3 +958,4 @@ are available to put on the invoice.
 | FOOD-029 | Product reviews | P3 | DONE | Backend + Storefront |
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |
 | FOOD-032 | Customer PDF invoice (per paid order) | P1 | TODO | Backend + Storefront |
+| FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | TODO | Backend + Storefront |

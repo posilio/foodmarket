@@ -1,8 +1,8 @@
-SESSION NAME: chore: strengthen SESSION_OUTPUT rule in CLAUDE.md
+SESSION NAME: docs: add FOOD-033 loyalty points for reviews to backlog
 DATE: 2026-03-18
 
 FILES CHANGED:
-- CLAUDE.md — added mandatory warning banner at top of file and reminder at bottom to ensure SESSION_OUTPUT.txt is always written
+- docs/IMPLEMENTATION_BACKLOG.md — added FOOD-033 full ticket entry (after FOOD-032) and summary table row
 
 FILES CREATED:
 - None
