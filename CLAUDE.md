@@ -1,5 +1,7 @@
 # CLAUDE.md — Claude Code Behaviour Rules for FoodMarket
 
+> ⚠️ MANDATORY: Write SESSION_OUTPUT.txt to the project root after EVERY task, no exceptions. If you are about to respond with a completion message without having written SESSION_OUTPUT.txt first, stop and write it now.
+
 > These rules apply to every Claude Code session in this project. Read this file before starting any task.
 
 ---
@@ -94,3 +96,7 @@ node_modules/.bin/prisma.cmd generate --schema=src/prisma/schema.prisma
 ```
 
 > `migrate dev` requires a TTY. In bash subprocesses: write SQL manually, then use `migrate deploy` + `generate`.
+
+---
+
+> Before marking any task complete: have you written SESSION_OUTPUT.txt? If not, do it now.

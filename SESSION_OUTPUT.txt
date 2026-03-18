@@ -1,8 +1,8 @@
-SESSION NAME: fix: diagnose orders loading error + update footer Shop links to new regions
-DATE: 2026-03-17
+SESSION NAME: chore: strengthen SESSION_OUTPUT rule in CLAUDE.md
+DATE: 2026-03-18
 
 FILES CHANGED:
-- packages/storefront/src/app/layout.tsx — footer Shop links replaced: old flat ?category= links (japanese, indian-spices, middle-eastern) → new region links (east-asia, south-asia, middle-east, europe, sub-saharan-africa, latin-america)
+- CLAUDE.md — added mandatory warning banner at top of file and reminder at bottom to ensure SESSION_OUTPUT.txt is always written
 
 FILES CREATED:
 - None
@@ -14,15 +14,13 @@ ENDPOINTS ADDED/CHANGED:
 - None
 
 FRONTEND CHANGES:
-- RootLayout (storefront) — footer "Shop" section now links to 6 origin regions via ?region= param instead of old flat category slugs
+- None
 
 ERRORS/ISSUES ENCOUNTERED:
-- "Failed to load orders" diagnosis: thoroughly checked orders.service.ts, orders.controller.ts, routes/orders.ts — no categoryId references found anywhere. The orderInclude uses variant: { include: { product: true } } which only fetches product scalars; no category join involved. Backend tsc and all 17 tests pass locally. GET /api/v1/orders returns 200 with empty list for new customers. Root cause is likely a transient Railway issue or the FOOD-031 migration (20260317000000_dual_category_system) not yet applied on Railway — the Dockerfile CMD runs prisma migrate deploy on startup so it should self-heal on next Railway deploy.
+- None
 
 TEST RESULTS:
-- Build: PASS (storefront tsc --noEmit, backend tsc --noEmit both clean)
-- Tests: 17 passed, 0 failed
+- Tests not run (docs-only change)
 
 NOTES FOR CLAUDE.AI:
-- "Failed to load orders" on Railway: the code is confirmed clean. If Railway still shows this error after the FOOD-031 deploy, check Railway deployment logs for migration errors. The CMD in the Dockerfile runs prisma migrate deploy before node dist/index.js — if migration fails, the container exits and Railway shows the old version.
-- Remaining backlog: FOOD-025 (order cancellation + Mollie refund), FOOD-030 (discount codes), FOOD-020/021 (go-live).
+- None
