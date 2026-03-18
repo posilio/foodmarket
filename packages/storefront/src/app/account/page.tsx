@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { formatPrice } from '../../lib/format';
+import { deleteMyAccount } from '../../lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
@@ -38,6 +39,10 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -49,6 +54,20 @@ export default function AccountPage() {
   }, [token]);
 
   function handleLogout() { logout(); router.push('/'); }
+
+  async function handleDeleteAccount() {
+    if (!token) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteMyAccount(token);
+      logout();
+      router.push('/');
+    } catch {
+      setDeleteError('Something went wrong. Please try again.');
+      setDeleting(false);
+    }
+  }
 
   if (!isLoggedIn || !customer) return null;
 
@@ -185,6 +204,93 @@ export default function AccountPage() {
             );
           })}
         </ul>
+      )}
+      {/* Delete account section */}
+      <div
+        className="mt-16 rounded-2xl p-6"
+        style={{ border: '1px solid #FECACA', backgroundColor: '#FFF5F5' }}
+      >
+        <h2
+          className="mb-2"
+          style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '22px', color: '#B91C1C' }}
+        >
+          Delete my account
+        </h2>
+        <p
+          className="mb-4 text-sm"
+          style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, color: '#374151' }}
+        >
+          This will permanently anonymise your account. Your order history is retained for legal compliance but will no longer be linked to your personal data.
+        </p>
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="text-sm px-5 py-2 rounded-full border transition-colors hover:opacity-80"
+          style={{ fontFamily: 'Jost, sans-serif', fontWeight: 500, color: '#B91C1C', borderColor: '#FECACA', backgroundColor: 'transparent', cursor: 'pointer' }}
+        >
+          Delete my account
+        </button>
+      </div>
+
+      {/* Confirmation modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-8"
+            style={{ backgroundColor: '#fff', border: '1px solid var(--color-border)' }}
+          >
+            <h3
+              className="mb-3"
+              style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '24px', color: '#B91C1C' }}
+            >
+              Are you sure?
+            </h3>
+            <p
+              className="mb-5 text-sm"
+              style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, color: '#374151' }}
+            >
+              Type <strong>DELETE</strong> to confirm. This action cannot be undone.
+            </p>
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              placeholder="Type DELETE to confirm"
+              className="w-full px-4 py-2 rounded-xl text-sm mb-4"
+              style={{ border: '1px solid var(--color-border)', fontFamily: 'Jost, sans-serif', outline: 'none' }}
+            />
+            {deleteError && (
+              <p className="mb-3 text-sm" style={{ color: '#B91C1C', fontFamily: 'Jost, sans-serif' }}>{deleteError}</p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirm(''); setDeleteError(''); }}
+                disabled={deleting}
+                className="text-sm px-5 py-2 rounded-full border"
+                style={{ fontFamily: 'Jost, sans-serif', color: 'var(--color-text-muted)', borderColor: 'var(--color-border)', backgroundColor: 'transparent', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirm !== 'DELETE' || deleting}
+                className="text-sm px-5 py-2 rounded-full transition-opacity"
+                style={{
+                  fontFamily: 'Jost, sans-serif',
+                  fontWeight: 500,
+                  color: '#fff',
+                  backgroundColor: deleteConfirm === 'DELETE' && !deleting ? '#B91C1C' : '#FCA5A5',
+                  cursor: deleteConfirm === 'DELETE' && !deleting ? 'pointer' : 'not-allowed',
+                  border: 'none',
+                }}
+              >
+                {deleting ? 'Deleting…' : 'Delete account'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

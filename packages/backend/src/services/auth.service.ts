@@ -171,6 +171,25 @@ export async function forgotPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(customer.email, rawToken);
 }
 
+export async function deleteMyAccount(customerId: string): Promise<void> {
+  const anonymisedEmail = `deleted_${customerId}@deleted.invalid`;
+  await prisma.$transaction([
+    prisma.refreshToken.deleteMany({ where: { customerId } }),
+    prisma.address.deleteMany({ where: { customerId } }),
+    prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        email: anonymisedEmail,
+        firstName: "Deleted",
+        lastName: "User",
+        phone: null,
+        passwordHash: "",
+        isActive: false,
+      },
+    }),
+  ]);
+}
+
 export async function resetPassword(rawToken: string, newPassword: string): Promise<void> {
   if (newPassword.length < 8) {
     throw new AppError("Password must be at least 8 characters", 400);

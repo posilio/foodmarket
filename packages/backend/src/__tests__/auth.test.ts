@@ -118,3 +118,36 @@ describe('GET /api/v1/auth/me', () => {
     expect(res.body.data).not.toHaveProperty('passwordHash');
   });
 });
+
+describe('DELETE /api/v1/customers/me', () => {
+  it('returns 401 without a token', async () => {
+    const res = await request(app).delete('/api/v1/customers/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 204 and anonymises the account when authenticated', async () => {
+    // Register a fresh account so deleting it does not break other tests
+    const deleteSuffix = Date.now() + 1;
+    const deleteEmail = `test_delete_${deleteSuffix}@example.com`;
+    const reg = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ email: deleteEmail, password: TEST_PASSWORD, firstName: 'Delete', lastName: 'Me' });
+
+    const customerId: string = reg.body.data.customer.id;
+    const token: string = reg.body.data.token;
+
+    const res = await request(app)
+      .delete('/api/v1/customers/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(204);
+
+    // Verify anonymisation directly in the DB — original email no longer exists
+    const original = await prisma.customer.findUnique({ where: { email: deleteEmail } });
+    expect(original).toBeNull();
+
+    const anonymised = await prisma.customer.findUnique({ where: { id: customerId } });
+    expect(anonymised?.email).toBe(`deleted_${customerId}@deleted.invalid`);
+    expect(anonymised?.isActive).toBe(false);
+  });
+});

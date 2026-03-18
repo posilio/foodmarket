@@ -683,7 +683,7 @@ Users have no way to recover a forgotten password. They are permanently locked o
 | **ID** | FOOD-025 |
 | **Title** | Order cancellation with Mollie refund and stock restore |
 | **Priority** | P2 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Admin |
 | **Dependencies** | None |
 
@@ -992,7 +992,7 @@ maintain persistent access. Migrating to httpOnly cookies eliminates this risk.
 | **ID** | FOOD-036 |
 | **Title** | GDPR Article 17 — customer account deletion endpoint |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront |
 | **Dependencies** | None |
 
@@ -1159,7 +1159,7 @@ endpoint as a precaution.
 | FOOD-022 | Fix 2 failing tests | P1 | DONE | Backend |
 | FOOD-023 | GDPR basics (privacy policy + cookie notice) | P1 | DONE | Storefront |
 | FOOD-024 | Password reset flow | P2 | DONE | Backend + Storefront |
-| FOOD-025 | Order cancellation + Mollie refund | P2 | TODO | Backend + Admin |
+| FOOD-025 | Order cancellation + Mollie refund | P2 | DONE | Backend + Admin |
 | FOOD-026 | Low stock email alert (daily digest) | P2 | DONE | Backend |
 | FOOD-027 | VAT handling (NL 9%/21%) | P2 | DEFERRED | Backend + Storefront |
 | FOOD-028 | Storefront search | P3 | DONE | Backend + Storefront |
@@ -1169,7 +1169,7 @@ endpoint as a precaution.
 | FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | TODO | Backend + Storefront |
 | FOOD-034 | Upgrade Next.js 14 → 15 (4 HIGH CVEs) | P1 | TODO | Storefront + Admin |
 | FOOD-035 | Migrate JWT tokens from localStorage to httpOnly cookies | P1 | TODO | Backend + Storefront + Admin |
-| FOOD-036 | GDPR right-to-erasure (DELETE /customers/me) | P1 | TODO | Backend + Storefront |
+| FOOD-036 | GDPR right-to-erasure (DELETE /customers/me) | P1 | DONE | Backend + Storefront |
 | FOOD-037 | Hash refresh tokens before storing in DB | P2 | TODO | Backend |
 | FOOD-038 | Account lockout after repeated login failures | P2 | TODO | Backend |
 | FOOD-039 | String input max-length validation across all routes | P2 | TODO | Backend |

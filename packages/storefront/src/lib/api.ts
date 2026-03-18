@@ -98,6 +98,16 @@ export async function getReviews(slug: string): Promise<ReviewsResponse> {
   });
 }
 
+export async function deleteMyAccount(token: string): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/api/v1/customers/me`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete account");
+  }
+}
+
 export async function submitReview(
   slug: string,
   rating: number,
