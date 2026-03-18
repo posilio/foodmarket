@@ -4,6 +4,7 @@ import path from "path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import productsRouter from "./routes/products";
 import authRouter from "./routes/auth";
 import ordersRouter from "./routes/orders";
@@ -45,6 +46,8 @@ app.use(
 app.use(express.json());
 // Needed for Mollie webhook (sends application/x-www-form-urlencoded)
 app.use(express.urlencoded({ extended: false }));
+// Parse httpOnly cookies (access_token, refresh_token)
+app.use(cookieParser());
 
 // Serve uploaded images as static files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));

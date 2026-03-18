@@ -4,16 +4,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
 export function useRequireAuth(redirectTo = '/login') {
-  const { isLoggedIn, token } = useAuth();
+  const { isLoggedIn, hydrating, token } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Short delay so AuthContext can rehydrate from sessionStorage before redirecting
-    const timer = setTimeout(() => {
-      if (!isLoggedIn) router.replace(redirectTo);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [isLoggedIn, redirectTo, router]);
+    // Wait until the mount-time cookie session check completes before redirecting.
+    // Without this guard the user would be redirected on every page load while
+    // the httpOnly cookie is being validated against the backend.
+    if (!hydrating && !isLoggedIn) {
+      router.replace(redirectTo);
+    }
+  }, [isLoggedIn, hydrating, redirectTo, router]);
 
-  return { isLoggedIn, token };
+  return { isLoggedIn, hydrating, token };
 }

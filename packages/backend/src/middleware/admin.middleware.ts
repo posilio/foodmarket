@@ -1,5 +1,6 @@
 // Admin middleware — verifies JWT then checks the isAdmin flag on the customer.
-// Must be used after (or instead of) requireAuth on admin routes.
+// Reads the token from the httpOnly access_token cookie first;
+// falls back to the Authorization: Bearer header for backwards compatibility.
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config/env";
@@ -16,14 +17,14 @@ export async function requireAdmin(
   res: Response,
   next: NextFunction
 ) {
-  const authHeader = req.headers.authorization;
+  const token =
+    (req.cookies as Record<string, string | undefined>).access_token ??
+    req.headers.authorization?.slice(7); // strip "Bearer "
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!token) {
     res.status(401).json({ error: "Unauthorised" });
     return;
   }
-
-  const token = authHeader.slice(7);
 
   let payload: JwtPayload;
   try {
@@ -44,8 +45,7 @@ export async function requireAdmin(
   }
 
   if (!customer.isAdmin) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
+    throw new AppError("Forbidden", 403);
   }
 
   req.customerId = customer.id;

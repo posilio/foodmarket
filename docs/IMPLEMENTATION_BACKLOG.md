@@ -960,7 +960,7 @@ Fix requires upgrading both packages to Next.js 15, which is a breaking change.
 | **ID** | FOOD-035 |
 | **Title** | Migrate JWT tokens from localStorage to httpOnly cookies |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront + Admin |
 | **Dependencies** | None |
 
@@ -1168,7 +1168,7 @@ endpoint as a precaution.
 | FOOD-032 | Customer PDF invoice (per paid order) | P1 | TODO | Backend + Storefront |
 | FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | TODO | Backend + Storefront |
 | FOOD-034 | Upgrade Next.js 14 → 15 (4 HIGH CVEs) | P1 | DONE | Storefront + Admin |
-| FOOD-035 | Migrate JWT tokens from localStorage to httpOnly cookies | P1 | TODO | Backend + Storefront + Admin |
+| FOOD-035 | Migrate JWT tokens from localStorage to httpOnly cookies | P1 | DONE | Backend + Storefront + Admin |
 | FOOD-036 | GDPR right-to-erasure (DELETE /customers/me) | P1 | DONE | Backend + Storefront |
 | FOOD-037 | Hash refresh tokens before storing in DB | P2 | TODO | Backend |
 | FOOD-038 | Account lockout after repeated login failures | P2 | TODO | Backend |
