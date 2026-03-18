@@ -930,7 +930,7 @@ as a reward. Points can be redeemed at checkout.
 | **ID** | FOOD-034 |
 | **Title** | Upgrade Next.js 14 → 15 to fix 4 HIGH security CVEs |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Storefront + Admin |
 | **Dependencies** | None |
 
@@ -1167,7 +1167,7 @@ endpoint as a precaution.
 | FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |
 | FOOD-032 | Customer PDF invoice (per paid order) | P1 | TODO | Backend + Storefront |
 | FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | TODO | Backend + Storefront |
-| FOOD-034 | Upgrade Next.js 14 → 15 (4 HIGH CVEs) | P1 | TODO | Storefront + Admin |
+| FOOD-034 | Upgrade Next.js 14 → 15 (4 HIGH CVEs) | P1 | DONE | Storefront + Admin |
 | FOOD-035 | Migrate JWT tokens from localStorage to httpOnly cookies | P1 | TODO | Backend + Storefront + Admin |
 | FOOD-036 | GDPR right-to-erasure (DELETE /customers/me) | P1 | DONE | Backend + Storefront |
 | FOOD-037 | Hash refresh tokens before storing in DB | P2 | TODO | Backend |
