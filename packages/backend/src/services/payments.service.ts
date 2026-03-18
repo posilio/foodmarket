@@ -199,6 +199,25 @@ export async function handleWebhook(molliePaymentId: string): Promise<void> {
   );
 }
 
+// ─── Create refund ────────────────────────────────────────────────────────────
+
+export async function createRefund(
+  molliePaymentId: string,
+  amountEuroCents: number
+): Promise<void> {
+  if (!MOLLIE_API_KEY) {
+    throw new Error("Mollie API key not configured");
+  }
+  await mollie.paymentRefunds.create({
+    paymentId: molliePaymentId,
+    amount: {
+      value: (amountEuroCents / 100).toFixed(2),
+      currency: "EUR",
+    },
+  });
+  logger.info({ molliePaymentId }, "Mollie refund created");
+}
+
 // ─── Get payment status ───────────────────────────────────────────────────────
 
 export async function getPaymentStatus(orderId: string, customerId: string) {

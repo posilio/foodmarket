@@ -1,8 +1,10 @@
 // Business logic for admin operations — order management, product management, stock updates.
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
 import { sendShippingNotification } from "../lib/email";
+import { createRefund } from "./payments.service";
+import logger from "../lib/logger";
 
 // ─── Shared includes ──────────────────────────────────────────────────────────
 
@@ -90,16 +92,45 @@ export async function getOrderByIdAdmin(id: string) {
   return order;
 }
 
+// Statuses that have been paid and had stock decremented — cancelling these
+// requires a Mollie refund and stock restore.
+const PAID_STATUSES: OrderStatus[] = [
+  OrderStatus.PAID,
+  OrderStatus.PROCESSING,
+  OrderStatus.SHIPPED,
+];
+
 export async function updateOrderStatus(id: string, newStatus: OrderStatus) {
-  const order = await prisma.order.findUnique({ where: { id } });
+  // Fetch with lines + payment so cancellation logic has what it needs
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: { lines: true, payment: true },
+  });
   if (!order) throw new AppError("Order not found", 404);
 
-  const updatedOrder = await prisma.$transaction(async (tx) => {
-    await tx.order.update({
-      where: { id },
-      data: { status: newStatus },
-    });
+  const needsRefundAndRestore =
+    newStatus === OrderStatus.CANCELLED && PAID_STATUSES.includes(order.status);
 
+  // ── Mollie refund (outside transaction — external call) ───────────────────
+  let mollieRefundSucceeded = false;
+  if (needsRefundAndRestore && order.payment?.providerReference) {
+    try {
+      await createRefund(
+        order.payment.providerReference,
+        order.payment.amountEuroCents
+      );
+      mollieRefundSucceeded = true;
+    } catch (err) {
+      logger.error({ err, orderId: id }, "Mollie refund failed");
+    }
+  }
+
+  // ── DB transaction ────────────────────────────────────────────────────────
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    // Update order status
+    await tx.order.update({ where: { id }, data: { status: newStatus } });
+
+    // Status-change audit event
     await tx.orderEvent.create({
       data: {
         orderId: id,
@@ -110,14 +141,47 @@ export async function updateOrderStatus(id: string, newStatus: OrderStatus) {
       },
     });
 
-    // Re-fetch after both writes so the response includes the new event
+    if (needsRefundAndRestore) {
+      // Restore stock for every line
+      for (const line of order.lines) {
+        await tx.productVariant.update({
+          where: { id: line.variantId },
+          data: { stockQuantity: { increment: line.quantity } },
+        });
+      }
+
+      // Update payment status
+      if (order.payment) {
+        await tx.payment.update({
+          where: { id: order.payment.id },
+          data: {
+            status: mollieRefundSucceeded
+              ? PaymentStatus.REFUNDED
+              : PaymentStatus.FAILED,
+          },
+        });
+      }
+
+      // Refund audit event
+      await tx.orderEvent.create({
+        data: {
+          orderId: id,
+          eventType: mollieRefundSucceeded ? "REFUND_INITIATED" : "REFUND_FAILED",
+          note: mollieRefundSucceeded
+            ? "Refund initiated via Mollie"
+            : "Mollie refund failed — payment status set to FAILED",
+        },
+      });
+    }
+
+    // Re-fetch so the response includes all new events and updated state
     return tx.order.findUniqueOrThrow({
       where: { id },
       include: adminOrderInclude,
     });
   });
 
-  // Send shipping notification outside the transaction — failures don't affect the update
+  // ── Shipping notification (outside transaction) ───────────────────────────
   if (newStatus === OrderStatus.SHIPPED) {
     const customer = await prisma.customer.findUnique({
       where: { id: updatedOrder.customerId },

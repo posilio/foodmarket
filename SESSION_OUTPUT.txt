@@ -1,8 +1,9 @@
-SESSION NAME: verify: shipping notification email on SHIPPED status (already present)
+SESSION NAME: feat: FOOD-025 order cancellation with Mollie refund + stock restore
 DATE: 2026-03-18
 
 FILES CHANGED:
-- None
+- packages/backend/src/services/payments.service.ts — added exported createRefund() helper
+- packages/backend/src/services/admin.service.ts — rewrote updateOrderStatus() to handle cancellation of PAID/PROCESSING/SHIPPED orders: Mollie refund + stock restore + payment status update, all in a single Prisma transaction
 
 FILES CREATED:
 - None
@@ -11,58 +12,36 @@ MIGRATIONS:
 - None
 
 ENDPOINTS ADDED/CHANGED:
-- None
+- PATCH /admin/orders/:id/status — now triggers Mollie refund + stock restore when cancelling a PAID/PROCESSING/SHIPPED order. No change to request/response shape.
 
 FRONTEND CHANGES:
 - None
 
 ERRORS/ISSUES ENCOUNTERED:
-- None
+- Mollie SDK paymentRefunds.create() does not accept (paymentId, data) — the payment ID must be inside the params object: { paymentId, amount }. Fixed after reading the TypeScript types.
 
 TEST RESULTS:
-- Build: PASS (tsc not run — no changes)
+- Build: PASS (tsc --noEmit clean)
 - Tests: 17 passed, 0 failed
 
 NOTES FOR CLAUDE.AI:
-- sendShippingNotification() is already called in the SHIPPED branch.
-  Exact location: packages/backend/src/services/admin.service.ts, lines 121–129,
-  inside updateOrderStatus() — runs outside the Prisma transaction after the
-  status update and OrderEvent are committed.
+- createRefund() lives in payments.service.ts (lines ~204-219). Signature:
+    createRefund(molliePaymentId: string, amountEuroCents: number): Promise<void>
+  Uses mollie.paymentRefunds.create({ paymentId, amount: { value, currency } }).
+  Throws (not degrades) so that the caller in admin.service.ts can catch and decide.
 
-- Call site (lines 121–129):
-    if (newStatus === OrderStatus.SHIPPED) {
-      const customer = await prisma.customer.findUnique({
-        where: { id: updatedOrder.customerId },
-        select: { email: true },
-      });
-      if (customer) {
-        await sendShippingNotification(updatedOrder, customer.email);
-      }
-    }
+- updateOrderStatus() flow for CANCELLED:
+  1. Load order with lines + payment
+  2. Determine if refund+restore needed (PAID/PROCESSING/SHIPPED only)
+  3. If yes: call createRefund() outside the transaction; catch errors, set mollieRefundSucceeded flag
+  4. Single Prisma transaction:
+     - Update order status to CANCELLED
+     - Write STATUS_UPDATED OrderEvent
+     - Restore stock (increment by line.quantity for each OrderLine)
+     - Update Payment.status → REFUNDED (success) or FAILED (mollie error)
+     - Write REFUND_INITIATED or REFUND_FAILED OrderEvent
+  5. Stock restore and DB writes always succeed even if Mollie fails
+  6. If Mollie not configured (local dev, no API key), createRefund throws, catch logs the error, DB writes still run
 
-- sendShippingNotification signature (email.ts line 228):
-    sendShippingNotification(order: EmailOrder, customerEmail: string): Promise<void>
-  where EmailOrder = { id, totalEuroCents, lines: [{ quantity, unitPriceEuroCents,
-    variant: { label, product: { name } } }] }
-  The updatedOrder from adminOrderInclude satisfies this shape.
-
-- Graceful degradation: sendShippingNotification wraps its Resend call in try/catch
-  internally (email.ts lines 254–264) and never re-throws. A failed email will log
-  an error but will never surface as a 500 to the admin. The outer call in
-  admin.service.ts does not need an additional .catch() because the function itself
-  never rejects.
-
-- All P1 checklist items are now verified or resolved:
-    DONE  Cart persistence
-    DONE  Auth persistence
-    DONE  Stock decrement / expiry job
-    DONE  Admin api.ts
-    DONE  Admin auth guard
-    DONE  Admin bootstrap
-    DONE  Tests (17/17)
-    DONE  Rate limiting
-    DONE  GDPR basics
-    DONE  Password reset
-    DONE  Shipping notification email (verified this session)
-    TODO  Mollie live key swap (FOOD-020) — env var only
-    TODO  Production domain + SSL (FOOD-021) — Railway config only
+- PENDING orders cancelled by admin: no refund, no stock restore (stock was never decremented for PENDING orders — the expiry job handles those).
+- DELIVERED orders cancelled by admin: no refund, no stock restore (treated same as PENDING — already delivered, refund would need to be manual).
