@@ -1,8 +1,8 @@
-SESSION NAME: docs: add FOOD-033 loyalty points for reviews to backlog
+SESSION NAME: fix: verify FOOD-022 failing tests (already resolved)
 DATE: 2026-03-18
 
 FILES CHANGED:
-- docs/IMPLEMENTATION_BACKLOG.md — added FOOD-033 full ticket entry (after FOOD-032) and summary table row
+- None
 
 FILES CREATED:
 - None
@@ -17,10 +17,15 @@ FRONTEND CHANGES:
 - None
 
 ERRORS/ISSUES ENCOUNTERED:
-- None
+- Both fixes described in the task were already applied in a prior session:
+  - auth.test.ts line 46 already uses res.body.data.customer (not res.body.data)
+  - Both afterAll blocks already delete refreshToken records before Customer
+- No changes needed.
 
 TEST RESULTS:
-- Tests not run (docs-only change)
+- Build: PASS
+- Tests: 17 passed, 0 failed
 
 NOTES FOR CLAUDE.AI:
-- None
+- FOOD-022 is fully resolved. The backlog status can be marked DONE if not already.
+- Remaining open items: FOOD-020 (Mollie live key), FOOD-021 (production domain), FOOD-025 (order cancellation + refund), FOOD-030 (discount codes), FOOD-032 (PDF invoice), FOOD-033 (loyalty points).
