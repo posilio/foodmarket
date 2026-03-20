@@ -22,7 +22,10 @@ import {
 } from "../services/customers.service";
 import { getAllCategories } from "../services/products.service";
 import { generateInvoicePdf } from "../services/invoice.service";
+import { adjustPoints, getBalance } from "../services/loyalty.service";
 import { AppError } from "../lib/errors";
+import prisma from "../lib/prisma";
+import { DiscountType } from "@prisma/client";
 
 const router = Router();
 
@@ -300,7 +303,95 @@ router.get("/admin/customers", async (req, res, next) => {
 router.get("/admin/customers/:id", async (req, res, next) => {
   try {
     const customer = await getCustomerByIdAdmin(String(req.params["id"]));
-    res.json({ data: customer });
+    const loyaltyBalance = await getBalance(String(req.params["id"]));
+    res.json({ data: { ...customer, loyaltyBalance } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Loyalty points (manual admin adjustment) ─────────────────────────────────
+
+router.post("/admin/customers/:id/loyalty-points", async (req, res, next) => {
+  try {
+    const { points, reason } = req.body as { points?: unknown; reason?: unknown };
+    if (typeof points !== "number" || !Number.isInteger(points)) {
+      throw new AppError("points must be an integer", 400);
+    }
+    if (!reason || typeof reason !== "string") {
+      throw new AppError("reason is required", 400);
+    }
+    await adjustPoints(String(req.params["id"]), points, reason);
+    res.json({ data: { ok: true } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Discount codes ───────────────────────────────────────────────────────────
+
+router.get("/admin/discount-codes", async (_req, res, next) => {
+  try {
+    const codes = await prisma.discountCode.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ data: codes });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/admin/discount-codes", async (req, res, next) => {
+  try {
+    const { code, type, amountCents, percent, maxUses, expiresAt } = req.body as {
+      code?: unknown;
+      type?: unknown;
+      amountCents?: unknown;
+      percent?: unknown;
+      maxUses?: unknown;
+      expiresAt?: unknown;
+    };
+
+    if (!code || typeof code !== "string") {
+      throw new AppError("code is required", 400);
+    }
+    if (!type || (type !== "FLAT" && type !== "PERCENTAGE")) {
+      throw new AppError("type must be FLAT or PERCENTAGE", 400);
+    }
+    if (type === "FLAT" && (typeof amountCents !== "number" || !Number.isInteger(amountCents) || amountCents < 0)) {
+      throw new AppError("amountCents must be a non-negative integer for FLAT codes", 400);
+    }
+    if (type === "PERCENTAGE" && (typeof percent !== "number" || !Number.isInteger(percent) || percent < 1 || percent > 100)) {
+      throw new AppError("percent must be an integer between 1 and 100 for PERCENTAGE codes", 400);
+    }
+
+    const dc = await prisma.discountCode.create({
+      data: {
+        code: code.toUpperCase(),
+        type: type as DiscountType,
+        amountCents: type === "FLAT" ? (amountCents as number) : null,
+        percent: type === "PERCENTAGE" ? (percent as number) : null,
+        maxUses: typeof maxUses === "number" ? maxUses : null,
+        expiresAt: typeof expiresAt === "string" ? new Date(expiresAt) : null,
+      },
+    });
+    res.status(201).json({ data: dc });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/admin/discount-codes/:id", async (req, res, next) => {
+  try {
+    const { isActive } = req.body as { isActive?: unknown };
+    if (typeof isActive !== "boolean") {
+      throw new AppError("isActive must be a boolean", 400);
+    }
+    const dc = await prisma.discountCode.update({
+      where: { id: String(req.params["id"]) },
+      data: { isActive },
+    });
+    res.json({ data: dc });
   } catch (err) {
     next(err);
   }

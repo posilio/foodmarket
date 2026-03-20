@@ -16,6 +16,7 @@ import bootstrapRouter from "./routes/bootstrap";
 import uploadRouter from "./routes/upload.routes";
 import importRouter from "./routes/import.routes";
 import reviewsRouter from "./routes/reviews";
+import loyaltyRouter from "./routes/loyalty";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { globalRateLimit } from "./middleware/rateLimit.middleware";
 import { ALLOWED_ORIGINS } from "./config/env";
@@ -72,6 +73,7 @@ app.use("/api/v1", bootstrapRouter);
 app.use("/api/v1", uploadRouter);
 app.use("/api/v1", importRouter);
 app.use("/api/v1", reviewsRouter);
+app.use("/api/v1", loyaltyRouter);
 
 // Global error handler — must be last
 app.use(errorMiddleware);

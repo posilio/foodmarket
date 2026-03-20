@@ -5,6 +5,11 @@ import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
 import { sendOrderConfirmation } from "../lib/email";
 import { SHIPPING_FLAT_RATE_CENTS } from "../config/env";
+import { validateDiscountCode } from "./discount.service";
+import { getBalance, redeemPoints } from "./loyalty.service";
+
+// Design constants
+const CENTS_PER_POINT = 1; // 1 loyalty point = €0.01
 
 export interface OrderLineInput {
   variantId: string;
@@ -16,6 +21,8 @@ export interface CreateOrderInput {
   shippingAddressId: string;
   lines: OrderLineInput[];
   notes?: string;
+  discountCode?: string;
+  redeemPoints?: number;
 }
 
 const orderInclude = {
@@ -31,7 +38,7 @@ const orderInclude = {
 } as const;
 
 export async function createOrder(input: CreateOrderInput) {
-  const { customerId, shippingAddressId, lines, notes } = input;
+  const { customerId, shippingAddressId, lines, notes, discountCode, redeemPoints: redeemPointsCount } = input;
 
   // ── 1. Basic input validation ──────────────────────────────────────────────
   if (!lines.length) {
@@ -76,7 +83,39 @@ export async function createOrder(input: CreateOrderInput) {
     return sum + variant.priceEuroCents * line.quantity;
   }, 0);
   const shippingCents = SHIPPING_FLAT_RATE_CENTS;
-  const totalEuroCents = lineTotal + shippingCents;
+
+  // ── 6a. Apply discount code (against line total only) ─────────────────────
+  let discountEuroCents = 0;
+  let discountCodeId: string | undefined;
+
+  if (discountCode) {
+    const result = await validateDiscountCode(discountCode, lineTotal);
+    discountEuroCents = result.discountEuroCents;
+    discountCodeId = result.codeId;
+  }
+
+  // ── 6b. Apply loyalty points redemption (against reduced line total) ──────
+  let pointsDiscountCents = 0;
+  let pointsRedeemed = 0;
+
+  if (redeemPointsCount && redeemPointsCount > 0) {
+    if (!Number.isInteger(redeemPointsCount) || redeemPointsCount < 1) {
+      throw new AppError("redeemPoints must be a positive integer", 400);
+    }
+    const balance = await getBalance(customerId);
+    if (balance < redeemPointsCount) {
+      throw new AppError(
+        `Insufficient loyalty points — balance: ${balance}, requested: ${redeemPointsCount}`,
+        400
+      );
+    }
+    // Points apply to lines only (not shipping), after discount code is applied
+    const lineAfterDiscount = lineTotal - discountEuroCents;
+    pointsDiscountCents = Math.min(redeemPointsCount * CENTS_PER_POINT, lineAfterDiscount);
+    pointsRedeemed = redeemPointsCount;
+  }
+
+  const totalEuroCents = lineTotal + shippingCents - discountEuroCents - pointsDiscountCents;
 
   // ── 7. Validate the shipping address belongs to this customer ─────────────
   const address = await prisma.address.findFirst({
@@ -86,7 +125,7 @@ export async function createOrder(input: CreateOrderInput) {
     throw new AppError("Invalid shipping address", 400);
   }
 
-  // ── 8. Single transaction: create order + lines + event (no stock decrement here) ──
+  // ── 8. Single transaction: create order + lines + event + discount/loyalty ──
   // Stock is decremented in the payment webhook after Mollie confirms payment.
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({
@@ -95,6 +134,10 @@ export async function createOrder(input: CreateOrderInput) {
         shippingAddressId,
         totalEuroCents,
         shippingCents,
+        discountCodeId: discountCodeId ?? null,
+        discountEuroCents,
+        loyaltyPointsRedeemed: pointsRedeemed,
+        loyaltyPointsDiscountCents: pointsDiscountCents,
         notes,
         status: OrderStatus.PENDING,
         stockReservedUntil: new Date(Date.now() + 30 * 60 * 1000),
@@ -115,6 +158,24 @@ export async function createOrder(input: CreateOrderInput) {
       },
       include: orderInclude,
     });
+
+    // Atomically increment usedCount on the discount code
+    if (discountCodeId) {
+      await tx.discountCode.update({
+        where: { id: discountCodeId },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    // Create the loyalty points debit row
+    if (pointsRedeemed > 0) {
+      await redeemPoints(
+        customerId,
+        pointsRedeemed,
+        `Redeemed at order ${newOrder.id}`,
+        tx
+      );
+    }
 
     return newOrder;
   });

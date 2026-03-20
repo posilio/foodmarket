@@ -14,7 +14,13 @@ export async function createOrderHandler(
 ) {
   try {
     const customerId = req.customerId!;
-    const { shippingAddressId, lines, notes } = req.body;
+    const { shippingAddressId, lines, notes, discountCode, redeemPoints } = req.body as {
+      shippingAddressId?: unknown;
+      lines?: unknown;
+      notes?: unknown;
+      discountCode?: unknown;
+      redeemPoints?: unknown;
+    };
 
     if (!shippingAddressId || typeof shippingAddressId !== "string") {
       res.status(400).json({ error: "shippingAddressId is required" });
@@ -26,12 +32,12 @@ export async function createOrderHandler(
       return;
     }
 
-    for (const line of lines) {
-      if (!line.variantId || typeof line.variantId !== "string") {
+    for (const line of lines as Array<Record<string, unknown>>) {
+      if (!line["variantId"] || typeof line["variantId"] !== "string") {
         res.status(400).json({ error: "Each line must have a variantId string" });
         return;
       }
-      if (!Number.isInteger(line.quantity) || line.quantity < 1) {
+      if (!Number.isInteger(line["quantity"]) || (line["quantity"] as number) < 1) {
         res.status(400).json({ error: "Each line quantity must be a positive integer" });
         return;
       }
@@ -39,9 +45,11 @@ export async function createOrderHandler(
 
     const order = await createOrder({
       customerId,
-      shippingAddressId,
-      lines,
+      shippingAddressId: shippingAddressId as string,
+      lines: lines as Array<{ variantId: string; quantity: number }>,
       notes: typeof notes === "string" ? notes : undefined,
+      discountCode: typeof discountCode === "string" ? discountCode : undefined,
+      redeemPoints: typeof redeemPoints === "number" ? redeemPoints : undefined,
     });
 
     res.status(201).json({ data: order });

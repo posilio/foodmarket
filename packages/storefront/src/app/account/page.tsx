@@ -39,6 +39,7 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -51,6 +52,14 @@ export default function AccountPage() {
       .then(body => setOrders(body.data))
       .catch((err: unknown) => setOrdersError(err instanceof Error ? err.message : 'Failed to load orders'))
       .finally(() => setOrdersLoading(false));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_URL}/api/v1/loyalty/balance`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() as Promise<{ data: { balance: number } }> : Promise.resolve({ data: { balance: 0 } }))
+      .then(body => setLoyaltyBalance(body.data.balance))
+      .catch(() => {});
   }, [token]);
 
   function handleLogout() { logout(); router.push('/'); }
@@ -112,6 +121,27 @@ export default function AccountPage() {
           Log out
         </button>
       </div>
+
+      {/* Loyalty points */}
+      {loyaltyBalance !== null && (
+        <div
+          className="rounded-2xl p-6 mb-10"
+          style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <h2
+            className="mb-1"
+            style={{ fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, fontSize: '22px', color: 'var(--color-text)' }}
+          >
+            Loyalty points
+          </h2>
+          <p style={{ fontFamily: 'Jost, sans-serif', fontWeight: 500, fontSize: '28px', color: 'var(--color-primary)' }}>
+            {loyaltyBalance} pts
+          </p>
+          <p className="mt-1 text-sm" style={{ fontFamily: 'Jost, sans-serif', fontWeight: 300, color: 'var(--color-text-muted)' }}>
+            Worth {formatPrice(loyaltyBalance)} &bull; Points expire 1 year after being earned &bull; Earn 500 pts by reviewing a delivered order
+          </p>
+        </div>
+      )}
 
       {/* Orders */}
       <h2

@@ -44,6 +44,11 @@ enum DietaryLabel {
   NUT_FREE
 }
 
+enum DiscountType {
+  FLAT
+  PERCENTAGE
+}
+
 enum AllergenType {
   GLUTEN
   CRUSTACEANS
@@ -165,6 +170,7 @@ model Customer {
   refreshTokens        RefreshToken[]
   passwordResetTokens  PasswordResetToken[]
   reviews              Review[]
+  loyaltyPoints        LoyaltyPoint[]
 }
 
 // Short-lived token used to verify a password-reset request.
@@ -222,15 +228,20 @@ model Order {
   status            OrderStatus  @default(PENDING)
   shippingAddressId String
   shippingAddress   Address      @relation(fields: [shippingAddressId], references: [id])
-  totalEuroCents    Int
-  shippingCents     Int          @default(0)
-  notes             String?
-  stockReservedUntil DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  lines             OrderLine[]
-  payment           Payment?
-  events            OrderEvent[]
+  totalEuroCents             Int
+  shippingCents              Int           @default(0)
+  discountCodeId             String?
+  discountEuroCents          Int           @default(0)
+  loyaltyPointsRedeemed      Int           @default(0)
+  loyaltyPointsDiscountCents Int           @default(0)
+  notes                      String?
+  stockReservedUntil         DateTime?
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+  lines                      OrderLine[]
+  payment                    Payment?
+  events                     OrderEvent[]
+  discountCode               DiscountCode? @relation(fields: [discountCodeId], references: [id])
 
   @@index([customerId])
   @@index([status])
@@ -277,6 +288,32 @@ model OrderEvent {
   toStatus   OrderStatus?
   note       String?
   createdAt  DateTime     @default(now())
+}
+
+// A promotional discount code that can be applied at checkout.
+model DiscountCode {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  type        DiscountType
+  amountCents Int?
+  percent     Int?
+  maxUses     Int?
+  usedCount   Int          @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  orders      Order[]
+}
+
+// Loyalty points ledger — each row is a credit (positive) or debit (negative).
+model LoyaltyPoint {
+  id         String   @id @default(cuid())
+  customerId String
+  points     Int
+  reason     String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
 
 // Customer review of a product (one per customer per product).

@@ -154,11 +154,24 @@ export interface Order {
   status: OrderStatus;
   totalEuroCents: number;
   shippingCents: number;
+  discountEuroCents: number;
+  loyaltyPointsRedeemed: number;
+  loyaltyPointsDiscountCents: number;
   createdAt: string;
   customer: { firstName: string; lastName: string; email: string };
   shippingAddress: Address;
   lines: OrderLine[];
   events: OrderEvent[];
+}
+
+export interface LoyaltyBalance {
+  balance: number;
+}
+
+export interface DiscountValidation {
+  discountEuroCents: number;
+  type: string;
+  description: string;
 }
 
 // ─── Review types ──────────────────────────────────────────────────────────────
