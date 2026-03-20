@@ -11,12 +11,11 @@ const TEST_EMAIL = `test_auth_${suffix}@example.com`;
 const TEST_PASSWORD = 'testpassword123';
 
 afterAll(async () => {
-  // Clean up the test customer created during the suite
   const customer = await prisma.customer.findUnique({ where: { email: TEST_EMAIL } });
   if (customer) {
     await prisma.refreshToken.deleteMany({ where: { customerId: customer.id } });
+    await prisma.customer.delete({ where: { id: customer.id } });
   }
-  await prisma.customer.deleteMany({ where: { email: TEST_EMAIL } });
   await prisma.$disconnect();
 });
 
@@ -107,7 +106,10 @@ describe('GET /api/v1/auth/me', () => {
       .post('/api/v1/auth/login')
       .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
 
-    const token: string = login.body.data.token;
+    const token = login.headers['set-cookie']
+      ?.find((c: string) => c.startsWith('access_token='))
+      ?.split(';')[0]
+      ?.split('=')[1] ?? '';
 
     const res = await request(app)
       .get('/api/v1/auth/me')
@@ -134,7 +136,10 @@ describe('DELETE /api/v1/customers/me', () => {
       .send({ email: deleteEmail, password: TEST_PASSWORD, firstName: 'Delete', lastName: 'Me' });
 
     const customerId: string = reg.body.data.customer.id;
-    const token: string = reg.body.data.token;
+    const token = reg.headers['set-cookie']
+      ?.find((c: string) => c.startsWith('access_token='))
+      ?.split(';')[0]
+      ?.split('=')[1] ?? '';
 
     const res = await request(app)
       .delete('/api/v1/customers/me')
