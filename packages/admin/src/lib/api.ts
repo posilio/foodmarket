@@ -171,6 +171,30 @@ export interface CustomerAddress {
   isDefault: boolean;
 }
 
+export type DiscountType = 'FLAT' | 'PERCENTAGE';
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  type: DiscountType;
+  amountCents: number | null;
+  percent: number | null;
+  maxUses: number | null;
+  usedCount: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateDiscountCodeBody {
+  code: string;
+  type: DiscountType;
+  amountCents?: number;
+  percent?: number;
+  maxUses?: number;
+  expiresAt?: string;
+}
+
 export interface LowStockVariant {
   id: string;
   sku: string;
@@ -383,6 +407,26 @@ export const adminApi = {
 
     get(token: string, id: string): Promise<{ data: CustomerDetail }> {
       return apiFetch(`/api/v1/admin/customers/${id}`, token);
+    },
+  },
+
+  discountCodes: {
+    list(token: string): Promise<{ data: DiscountCode[] }> {
+      return apiFetch('/api/v1/admin/discount-codes', token);
+    },
+
+    create(token: string, body: CreateDiscountCodeBody): Promise<{ data: DiscountCode }> {
+      return apiFetch('/api/v1/admin/discount-codes', token, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+
+    setActive(token: string, id: string, isActive: boolean): Promise<{ data: DiscountCode }> {
+      return apiFetch(`/api/v1/admin/discount-codes/${id}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive }),
+      });
     },
   },
 

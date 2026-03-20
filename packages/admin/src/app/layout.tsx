@@ -7,7 +7,7 @@ import { AdminGuard } from "../components/AdminGuard";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FoodWebshop Admin",
+  title: "FoodMarket Admin",
 };
 
 export default function AdminLayout({
@@ -47,6 +47,12 @@ export default function AdminLayout({
                 className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
               >
                 Import
+              </Link>
+              <Link
+                href="/discount-codes"
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Discount codes
               </Link>
               <div className="ml-auto">
                 <LogoutButton />

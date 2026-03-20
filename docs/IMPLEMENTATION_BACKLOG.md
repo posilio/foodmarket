@@ -826,7 +826,7 @@ Products have no review or rating system.
 | **ID** | FOOD-030 |
 | **Title** | Discount codes at checkout |
 | **Priority** | P3 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront + Admin |
 | **Dependencies** | None |
 
@@ -839,6 +839,12 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 - Checkout: code input field; `POST /orders/validate-discount` validates and returns the discount amount.
 - Apply discount to `totalEuroCents` on order create; store `discountCodeId` + `discountEuroCents` on `Order`.
 
+**Implemented — design constants:**
+- FLAT and PERCENTAGE types both supported
+- Codes are stored and matched in uppercase (case-insensitive for customers)
+- Discount applies to line total only, not shipping
+- `usedCount` is incremented atomically inside the order transaction
+
 ---
 
 ### FOOD-032: Customer PDF Invoice
@@ -848,7 +854,7 @@ There is no promotional discount mechanism. The shop cannot run sales or targete
 | **ID** | FOOD-032 |
 | **Title** | Customer PDF invoice for every paid order |
 | **Priority** | P1 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront |
 | **Dependencies** | KVK registration (need company details) |
 
@@ -885,8 +891,9 @@ go-live.
 - packages/storefront/src/app/account/orders/[id]/page.tsx
 - packages/admin/src/app/orders/[id]/page.tsx
 
-**Note:** Do not implement until KVK number and BTW number
-are available to put on the invoice.
+**Note:** Implemented with placeholder values (KVK: XXXXXXXX, BTW: NL000000000B01).
+These MUST be replaced with real values after KVK registration before going live.
+Search codebase for `PLACEHOLDER_KVK` and `PLACEHOLDER_BTW` to find all locations.
 
 ---
 
@@ -897,7 +904,7 @@ are available to put on the invoice.
 | **ID** | FOOD-033 |
 | **Title** | Reward customers with discount points for leaving a review |
 | **Priority** | P3 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend + Storefront |
 | **Dependencies** | FOOD-029 (reviews), FOOD-030 (discount codes) |
 
@@ -920,6 +927,15 @@ as a reward. Points can be redeemed at checkout.
 - packages/backend/src/services/orders.service.ts
 - packages/storefront/src/app/account/page.tsx
 - packages/storefront/src/app/checkout/page.tsx
+
+**Implemented — design constants:**
+- `POINTS_PER_REVIEW = 500` (awarded per qualifying review)
+- `CENTS_PER_POINT = 1` (1 point = €0.01, so 100 points = €1.00)
+- `POINTS_EXPIRY_DAYS = 365` (points expire 1 year after being earned)
+- Ledger pattern: positive rows = earned, negative rows = redeemed; balance = SUM of non-expired rows
+- Points apply to line total only (not shipping), after discount code is applied
+- Partial redemption supported — customer chooses how many points to spend
+- Award is fire-and-forget after review creation (failure does not affect review response)
 
 ---
 
@@ -1024,7 +1040,7 @@ and personal data. No such endpoint currently exists.
 | **ID** | FOOD-037 |
 | **Title** | Hash refresh tokens before storing in DB (defence-in-depth) |
 | **Priority** | P2 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -1053,7 +1069,7 @@ valid tokens.
 | **ID** | FOOD-038 |
 | **Title** | Account lockout after N consecutive failed login attempts |
 | **Priority** | P2 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -1085,7 +1101,7 @@ level. Add per-account lockout as a second layer.
 | **ID** | FOOD-039 |
 | **Title** | Add max-length validation to all string inputs |
 | **Priority** | P2 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -1111,7 +1127,7 @@ a last resort but produce opaque 500 errors, not clean 400 responses.
 | **ID** | FOOD-040 |
 | **Title** | Apply authRateLimit to POST /api/v1/bootstrap/admin |
 | **Priority** | P3 |
-| **Status** | TODO |
+| **Status** | DONE |
 | **Area** | Backend |
 | **Dependencies** | None |
 
@@ -1164,13 +1180,13 @@ endpoint as a precaution.
 | FOOD-027 | VAT handling (NL 9%/21%) | P2 | DEFERRED | Backend + Storefront |
 | FOOD-028 | Storefront search | P3 | DONE | Backend + Storefront |
 | FOOD-029 | Product reviews | P3 | DONE | Backend + Storefront |
-| FOOD-030 | Discount codes | P3 | TODO | Backend + Storefront |
-| FOOD-032 | Customer PDF invoice (per paid order) | P1 | TODO | Backend + Storefront |
-| FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | TODO | Backend + Storefront |
+| FOOD-030 | Discount codes | P3 | DONE | Backend + Storefront + Admin |
+| FOOD-032 | Customer PDF invoice (per paid order) | P1 | DONE | Backend + Storefront |
+| FOOD-033 | Loyalty points for reviews (kortingspunten) | P3 | DONE | Backend + Storefront |
 | FOOD-034 | Upgrade Next.js 14 → 15 (4 HIGH CVEs) | P1 | DONE | Storefront + Admin |
 | FOOD-035 | Migrate JWT tokens from localStorage to httpOnly cookies | P1 | DONE | Backend + Storefront + Admin |
 | FOOD-036 | GDPR right-to-erasure (DELETE /customers/me) | P1 | DONE | Backend + Storefront |
-| FOOD-037 | Hash refresh tokens before storing in DB | P2 | TODO | Backend |
-| FOOD-038 | Account lockout after repeated login failures | P2 | TODO | Backend |
-| FOOD-039 | String input max-length validation across all routes | P2 | TODO | Backend |
-| FOOD-040 | Stricter rate limit on bootstrap endpoint | P3 | TODO | Backend |
+| FOOD-037 | Hash refresh tokens before storing in DB | P2 | DONE | Backend |
+| FOOD-038 | Account lockout after repeated login failures | P2 | DONE | Backend |
+| FOOD-039 | String input max-length validation across all routes | P2 | DONE | Backend |
+| FOOD-040 | Stricter rate limit on bootstrap endpoint | P3 | DONE | Backend |
