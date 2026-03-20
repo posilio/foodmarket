@@ -11,8 +11,9 @@ import { AppError } from '../lib/errors';
 
 const router = Router();
 
-// __dirname is src/routes/ — uploads lives two levels up at the package root.
-const UPLOADS_DIR = path.join(__dirname, '../../uploads');
+// __dirname at runtime is dist/routes/ — ../../../ goes up to packages/backend/.
+// UPLOADS_DIR can be overridden via env var (e.g. a Railway volume mount).
+const UPLOADS_DIR = process.env.UPLOADS_DIR ?? path.join(__dirname, '../../../uploads');
 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
