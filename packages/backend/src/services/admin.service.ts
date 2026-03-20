@@ -2,7 +2,8 @@
 import { OrderStatus, PaymentStatus } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { AppError } from "../lib/errors";
-import { sendShippingNotification } from "../lib/email";
+import { sendOrderConfirmation, sendShippingNotification } from "../lib/email";
+import { generateInvoicePdf } from "./invoice.service";
 import { createRefund } from "./payments.service";
 import logger from "../lib/logger";
 
@@ -180,6 +181,16 @@ export async function updateOrderStatus(id: string, newStatus: OrderStatus) {
       include: adminOrderInclude,
     });
   });
+
+  // ── Invoice + confirmation email on PAID (outside transaction) ───────────
+  if (newStatus === OrderStatus.PAID && updatedOrder.customer) {
+    try {
+      const { pdfBuffer, invoiceNumber } = await generateInvoicePdf(id);
+      await sendOrderConfirmation(updatedOrder, updatedOrder.customer.email, pdfBuffer, invoiceNumber);
+    } catch (err) {
+      logger.error({ err, orderId: id }, "Failed to generate or send invoice on PAID");
+    }
+  }
 
   // ── Shipping notification (outside transaction) ───────────────────────────
   if (newStatus === OrderStatus.SHIPPED) {

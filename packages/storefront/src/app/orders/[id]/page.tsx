@@ -64,6 +64,8 @@ function PaymentBanner({ status, orderId }: { status: string | null; orderId: st
   return null;
 }
 
+const INVOICE_STATUSES = new Set(['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED']);
+
 export default function OrderConfirmationPage() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
@@ -72,6 +74,7 @@ export default function OrderConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [paymentDone, setPaymentDone] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     setPaymentDone(
@@ -110,6 +113,29 @@ export default function OrderConfirmationPage() {
       .then((body) => { if (body?.data) setPayment(body.data); })
       .catch(() => {});
   }, [paymentDone, token, id]);
+
+  async function handleDownloadInvoice() {
+    if (!token) return;
+    setDownloadingInvoice(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/orders/${id}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to download invoice');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${id.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently ignore
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -196,6 +222,29 @@ export default function OrderConfirmationPage() {
           {formatPrice(order.totalEuroCents)}
         </span>
       </div>
+
+      {INVOICE_STATUSES.has(order.status) && (
+        <div className="mb-6">
+          <button
+            onClick={handleDownloadInvoice}
+            disabled={downloadingInvoice}
+            style={{
+              fontFamily: 'Jost, sans-serif',
+              fontWeight: 500,
+              fontSize: '14px',
+              color: 'var(--color-primary)',
+              background: 'none',
+              border: '1px solid var(--color-primary)',
+              borderRadius: '8px',
+              padding: '8px 20px',
+              cursor: 'pointer',
+              opacity: downloadingInvoice ? 0.6 : 1,
+            }}
+          >
+            {downloadingInvoice ? 'Downloading…' : 'Download Invoice (PDF)'}
+          </button>
+        </div>
+      )}
 
       <Link
         href="/products"

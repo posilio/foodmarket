@@ -104,6 +104,7 @@ export default function AdminOrderDetailPage() {
   const [newStatus, setNewStatus] = useState<OrderStatus>('PENDING');
   const [updating, setUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState('');
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     adminApi.orders
@@ -117,6 +118,30 @@ export default function AdminOrderDetailPage() {
       )
       .finally(() => setLoading(false));
   }, [id, token]);
+
+  async function handleDownloadInvoice() {
+    if (!order || !token) return;
+    setDownloadingInvoice(true);
+    try {
+      const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
+      const res = await fetch(`${BASE}/api/v1/admin/orders/${order.id}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to download invoice');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${order.id.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently ignore — user sees no change
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  }
 
   async function handleStatusUpdate() {
     if (!order) return;
@@ -164,7 +189,7 @@ export default function AdminOrderDetailPage() {
         ← Back to orders
       </Link>
 
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-6 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">
           Order{' '}
           <span className="font-mono text-lg">{order.id.slice(0, 8)}…</span>
@@ -174,6 +199,13 @@ export default function AdminOrderDetailPage() {
         >
           {STATUS_LABELS[order.status] ?? order.status}
         </span>
+        <button
+          onClick={handleDownloadInvoice}
+          disabled={downloadingInvoice}
+          className="ml-auto bg-white border border-gray-300 hover:border-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {downloadingInvoice ? 'Downloading…' : 'Download Invoice (PDF)'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

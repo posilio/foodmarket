@@ -106,7 +106,7 @@ describe('GET /api/v1/auth/me', () => {
       .post('/api/v1/auth/login')
       .send({ email: TEST_EMAIL, password: TEST_PASSWORD });
 
-    const token = login.headers['set-cookie']
+    const token = (login.headers['set-cookie'] as unknown as string[] | undefined)
       ?.find((c: string) => c.startsWith('access_token='))
       ?.split(';')[0]
       ?.split('=')[1] ?? '';
@@ -136,7 +136,7 @@ describe('DELETE /api/v1/customers/me', () => {
       .send({ email: deleteEmail, password: TEST_PASSWORD, firstName: 'Delete', lastName: 'Me' });
 
     const customerId: string = reg.body.data.customer.id;
-    const token = reg.headers['set-cookie']
+    const token = (reg.headers['set-cookie'] as unknown as string[] | undefined)
       ?.find((c: string) => c.startsWith('access_token='))
       ?.split(';')[0]
       ?.split('=')[1] ?? '';

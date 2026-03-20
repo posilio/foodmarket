@@ -177,6 +177,17 @@ model PasswordResetToken {
   createdAt  DateTime @default(now())
 }
 
+// Sequential invoice number per calendar year, one row per paid order.
+model InvoiceNumber {
+  id        Int      @id @default(autoincrement())
+  year      Int
+  sequence  Int
+  orderId   String   @unique
+  createdAt DateTime @default(now())
+
+  @@unique([year, sequence])
+}
+
 // Opaque refresh tokens for the silent-refresh auth flow.
 model RefreshToken {
   id         String   @id @default(uuid())

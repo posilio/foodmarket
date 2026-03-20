@@ -3,6 +3,7 @@
 import { Router } from "express";
 import { OrderStatus } from "@prisma/client";
 import { requireAdmin } from "../middleware/admin.middleware";
+import { assertMaxLength } from "../lib/validate";
 import {
   getAllOrders,
   getOrderByIdAdmin,
@@ -20,6 +21,7 @@ import {
   getCustomerByIdAdmin,
 } from "../services/customers.service";
 import { getAllCategories } from "../services/products.service";
+import { generateInvoicePdf } from "../services/invoice.service";
 import { AppError } from "../lib/errors";
 
 const router = Router();
@@ -47,6 +49,17 @@ router.get("/admin/orders/:id", async (req, res, next) => {
   try {
     const order = await getOrderByIdAdmin(String(req.params["id"]));
     res.json({ data: order });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/admin/orders/:id/invoice", async (req, res, next) => {
+  try {
+    const { pdfBuffer, invoiceNumber } = await generateInvoicePdf(String(req.params["id"]));
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="invoice-${invoiceNumber}.pdf"`);
+    res.send(pdfBuffer);
   } catch (err) {
     next(err);
   }
@@ -119,6 +132,11 @@ router.post("/admin/products", async (req, res, next) => {
       throw new AppError("At least one variant is required", 400);
     }
 
+    assertMaxLength(name, 255, "name");
+    assertMaxLength(description, 2000, "description");
+    assertMaxLength(countryOfOrigin, 100, "countryOfOrigin");
+    assertMaxLength(brandName, 255, "brandName");
+
     const product = await createProduct({
       name,
       originCategoryId,
@@ -148,6 +166,11 @@ router.patch("/admin/products/:id", async (req, res, next) => {
         typeCategoryId?: string;
         isActive?: boolean;
       };
+
+    assertMaxLength(name, 255, "name");
+    assertMaxLength(description, 2000, "description");
+    assertMaxLength(brandName, 255, "brandName");
+    assertMaxLength(countryOfOrigin, 100, "countryOfOrigin");
 
     const product = await updateProduct(String(req.params["id"]), {
       name,
@@ -209,6 +232,9 @@ router.post("/admin/products/:id/variants", async (req, res, next) => {
       throw new AppError("priceEuroCents must be a non-negative integer", 400);
     }
 
+    assertMaxLength(sku, 100, "sku");
+    assertMaxLength(label, 100, "label");
+
     const variant = await addVariant(String(req.params["id"]), {
       sku,
       label,
@@ -232,6 +258,9 @@ router.patch("/admin/products/:id/variants/:variantId", async (req, res, next) =
       ean?: string | null;
       volumeMl?: number | null;
     };
+
+    assertMaxLength(label, 100, "label");
+    assertMaxLength(ean ?? undefined, 100, "ean");
 
     const variant = await updateVariant(
       String(req.params["id"]),

@@ -85,7 +85,9 @@ interface EmailOrder {
 
 export async function sendOrderConfirmation(
   order: EmailOrder,
-  customerEmail: string
+  customerEmail: string,
+  pdfBuffer?: Buffer,
+  invoiceNumber?: string
 ): Promise<void> {
   if (!canSendEmail()) {
     logger.warn("Email skipped: RESEND_API_KEY not set");
@@ -93,6 +95,9 @@ export async function sendOrderConfirmation(
   }
 
   const shortId = order.id.slice(0, 8);
+  const invoiceNote = pdfBuffer
+    ? `<p style="margin-top:16px;color:#374151">Your invoice is attached to this email.</p>`
+    : '';
   const html = emailWrapper(`
     <h1 style="font-size:22px;margin-bottom:8px">Thank you for your order!</h1>
     <p style="color:#6b7280;margin-bottom:24px">Order reference: <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">${shortId}</code></p>
@@ -103,9 +108,12 @@ export async function sendOrderConfirmation(
       Grand total: ${formatPrice(order.totalEuroCents)}
     </p>
 
+    ${invoiceNote}
     <p style="margin-top:24px;color:#374151">We will notify you when your order ships.</p>
     <p style="color:#374151">FoodWebshop Team</p>
   `);
+
+  const filename = `invoice-${invoiceNumber ?? shortId}.pdf`;
 
   try {
     const result = await resend.emails.send({
@@ -113,6 +121,9 @@ export async function sendOrderConfirmation(
       to: customerEmail,
       subject: `Order confirmed — FoodWebshop #${shortId}`,
       html,
+      ...(pdfBuffer && {
+        attachments: [{ filename, content: pdfBuffer }],
+      }),
     });
     logger.info({ emailId: result.data?.id }, "Order confirmation email sent");
   } catch (err) {
